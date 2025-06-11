@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@/lib/database"
+import { supabaseAdmin } from "@/lib/supabase"
 import { generateToken, comparePassword } from "@/lib/jwt"
 
 export async function POST(request: NextRequest) {
@@ -11,13 +11,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Find user by email
-    const users = await sql`
-      SELECT id, name, email, password, role, student_id, created_at
-      FROM users 
-      WHERE email = ${email} AND deleted_at IS NULL
-    `
+    const { data: users, error } = await supabaseAdmin
+      .from('users')
+      .select('id, name, email, password, role, student_id, created_at')
+      .eq('email', email)
+      .is('deleted_at', null)
 
-    if (users.length === 0) {
+    if (error) {
+      console.error('Database error:', error)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
+
+    if (!users || users.length === 0) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 

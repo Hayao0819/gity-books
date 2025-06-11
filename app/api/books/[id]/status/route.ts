@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@/lib/database"
+import { supabaseAdmin } from "@/lib/supabase"
 import { requireAuth } from "@/lib/auth"
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
@@ -21,21 +21,35 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     // Check if book exists
-    const books = await sql`
-      SELECT id FROM books WHERE id = ${bookId} AND deleted_at IS NULL
-    `
+    const { data: books, error: checkError } = await supabaseAdmin
+      .from('books')
+      .select('id')
+      .eq('id', bookId)
+      .is('deleted_at', null)
 
-    if (books.length === 0) {
+    if (checkError) {
+      console.error('Database error:', checkError)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
+
+    if (!books || books.length === 0) {
       return NextResponse.json({ error: "Book not found" }, { status: 404 })
     }
 
     // Update status
-    const updatedBooks = await sql`
-      UPDATE books 
-      SET status = ${status}, updated_at = NOW()
-      WHERE id = ${bookId}
-      RETURNING id, title, author, isbn, publisher, published_year, description, status, created_at, updated_at
-    `
+    const { data: updatedBooks, error: updateError } = await supabaseAdmin
+      .from('books')
+      .update({ 
+        status, 
+        updated_at: new Date().toISOString() 
+      })
+      .eq('id', bookId)
+      .select('id, title, author, isbn, publisher, published_year, description, status, created_at, updated_at')
+
+    if (updateError) {
+      console.error('Database error:', updateError)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
 
     const book = updatedBooks[0]
 

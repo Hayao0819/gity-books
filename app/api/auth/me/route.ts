@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@/lib/database"
+import { supabaseAdmin } from "@/lib/supabase"
 import { requireAuth } from "@/lib/auth"
 
 export async function GET(request: NextRequest) {
@@ -7,13 +7,18 @@ export async function GET(request: NextRequest) {
     const authUser = requireAuth(request)
 
     // Get user details
-    const users = await sql`
-      SELECT id, name, email, role, student_id, created_at
-      FROM users 
-      WHERE id = ${authUser.userId} AND deleted_at IS NULL
-    `
+    const { data: users, error } = await supabaseAdmin
+      .from('users')
+      .select('id, name, email, role, student_id, created_at')
+      .eq('id', authUser.userId)
+      .is('deleted_at', null)
 
-    if (users.length === 0) {
+    if (error) {
+      console.error('Database error:', error)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
+
+    if (!users || users.length === 0) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 

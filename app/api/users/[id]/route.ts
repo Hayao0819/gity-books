@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@/lib/database"
+import { supabaseAdmin } from "@/lib/supabase"
 import { requireAdmin } from "@/lib/auth"
 import { hashPassword } from "@/lib/jwt"
 
@@ -12,37 +12,39 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Invalid user ID" }, { status: 400 })
     }
 
-    const users = await sql`
-      SELECT u.id, u.name, u.email, u.role, u.student_id, u.created_at, u.updated_at,
-             c.id as checkout_id, c.book_id, c.borrowed_date, c.due_date, c.return_date, c.status as checkout_status,
-             b.title as book_title, b.author as book_author, b.isbn as book_isbn
-      FROM users u
-      LEFT JOIN checkouts c ON u.id = c.user_id AND c.deleted_at IS NULL
-      LEFT JOIN books b ON c.book_id = b.id
-      WHERE u.id = ${userId} AND u.deleted_at IS NULL
-    `
+    const { data: users, error } = await supabaseAdmin
+      .from('users')
+      .select(`
+        id, name, email, role, student_id, created_at, updated_at,
+        checkouts(
+          id, book_id, borrowed_date, due_date, return_date, status,
+          books(id, title, author, isbn)
+        )
+      `)
+      .eq('id', userId)
+      .is('deleted_at', null)
 
-    if (users.length === 0) {
+    if (error) {
+      console.error('Database error:', error)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
+
+    if (!users || users.length === 0) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
     const user = users[0]
-    const checkouts = users
-      .filter((row) => row.checkout_id)
-      .map((row) => ({
-        id: row.checkout_id,
-        book_id: row.book_id,
-        borrowed_date: row.borrowed_date,
-        due_date: row.due_date,
-        return_date: row.return_date,
-        status: row.checkout_status,
-        book: {
-          id: row.book_id,
-          title: row.book_title,
-          author: row.book_author,
-          isbn: row.book_isbn,
-        },
-      }))
+
+    // Format checkouts
+    const checkouts = (user.checkouts || []).map((checkout: any) => ({
+      id: checkout.id,
+      book_id: checkout.book_id,
+      borrowed_date: checkout.borrowed_date,
+      due_date: checkout.due_date,
+      return_date: checkout.return_date,
+      status: checkout.status,
+      book: checkout.books,
+    }))
 
     return NextResponse.json({
       user: {
@@ -81,11 +83,18 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     // Check if user exists
-    const existingUsers = await sql`
-      SELECT id, email, student_id FROM users WHERE id = ${userId} AND deleted_at IS NULL
-    `
+    const { data: existingUsers, error: checkError } = await supabaseAdmin
+      .from('users')
+      .select('id, email, student_id')
+      .eq('id', userId)
+      .is('deleted_at', null)
 
-    if (existingUsers.length === 0) {
+    if (checkError) {
+      console.error('Database error:', checkError)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
+
+    if (!existingUsers || existingUsers.length === 0) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
@@ -93,44 +102,68 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     // Check email uniqueness if changed
     if (email !== existingUser.email) {
-      const duplicateEmails = await sql`
-        SELECT id FROM users WHERE email = ${email} AND id != ${userId} AND deleted_at IS NULL
-      `
+      const { data: duplicateEmails, error: emailError } = await supabaseAdmin
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .neq('id', userId)
+        .is('deleted_at', null)
 
-      if (duplicateEmails.length > 0) {
+      if (emailError) {
+        console.error('Database error:', emailError)
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+      }
+
+      if (duplicateEmails && duplicateEmails.length > 0) {
         return NextResponse.json({ error: "Email already exists" }, { status: 409 })
       }
     }
 
     // Check student_id uniqueness if changed
     if (student_id && student_id !== existingUser.student_id) {
-      const duplicateStudentIds = await sql`
-        SELECT id FROM users WHERE student_id = ${student_id} AND id != ${userId} AND deleted_at IS NULL
-      `
+      const { data: duplicateStudentIds, error: studentIdError } = await supabaseAdmin
+        .from('users')
+        .select('id')
+        .eq('student_id', student_id)
+        .neq('id', userId)
+        .is('deleted_at', null)
 
-      if (duplicateStudentIds.length > 0) {
+      if (studentIdError) {
+        console.error('Database error:', studentIdError)
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+      }
+
+      if (duplicateStudentIds && duplicateStudentIds.length > 0) {
         return NextResponse.json({ error: "Student ID already exists" }, { status: 409 })
       }
     }
 
     // Prepare update data
-    let updateQuery = `
-      UPDATE users 
-      SET name = $1, email = $2, student_id = $3, role = $4, updated_at = NOW()
-    `
-    const params = [name, email, student_id || null, role || "user"]
+    const updateData: any = {
+      name,
+      email,
+      student_id: student_id || null,
+      role: role || "user",
+      updated_at: new Date().toISOString()
+    }
 
     // Add password to update if provided
     if (password) {
       const hashedPassword = await hashPassword(password)
-      updateQuery += `, password = $5`
-      params.push(hashedPassword)
+      updateData.password = hashedPassword
     }
 
-    updateQuery += ` WHERE id = $${params.length + 1} RETURNING id, name, email, role, student_id, created_at, updated_at`
-    params.push(userId)
+    const { data: updatedUsers, error: updateError } = await supabaseAdmin
+      .from('users')
+      .update(updateData)
+      .eq('id', userId)
+      .select('id, name, email, role, student_id, created_at, updated_at')
 
-    const updatedUsers = await sql.unsafe(updateQuery, params)
+    if (updateError) {
+      console.error('Database error:', updateError)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
+
     const user = updatedUsers[0]
 
     return NextResponse.json({ user })
@@ -153,28 +186,48 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     // Check if user exists
-    const users = await sql`
-      SELECT id FROM users WHERE id = ${userId} AND deleted_at IS NULL
-    `
+    const { data: users, error: checkError } = await supabaseAdmin
+      .from('users')
+      .select('id')
+      .eq('id', userId)
+      .is('deleted_at', null)
 
-    if (users.length === 0) {
+    if (checkError) {
+      console.error('Database error:', checkError)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
+
+    if (!users || users.length === 0) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
     // Check for active checkouts
-    const activeCheckouts = await sql`
-      SELECT COUNT(*) as count FROM checkouts 
-      WHERE user_id = ${userId} AND status = 'borrowed' AND deleted_at IS NULL
-    `
+    const { data: activeCheckouts, error: checkoutError } = await supabaseAdmin
+      .from('checkouts')
+      .select('id', { count: 'exact' })
+      .eq('user_id', userId)
+      .eq('status', 'borrowed')
+      .is('deleted_at', null)
 
-    if (Number.parseInt(activeCheckouts[0].count) > 0) {
+    if (checkoutError) {
+      console.error('Database error:', checkoutError)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
+
+    if (activeCheckouts && activeCheckouts.length > 0) {
       return NextResponse.json({ error: "Cannot delete user with active checkouts" }, { status: 400 })
     }
 
     // Soft delete
-    await sql`
-      UPDATE users SET deleted_at = NOW() WHERE id = ${userId}
-    `
+    const { error: deleteError } = await supabaseAdmin
+      .from('users')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', userId)
+
+    if (deleteError) {
+      console.error('Database error:', deleteError)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
 
     return NextResponse.json({ message: "User deleted successfully" })
   } catch (error) {

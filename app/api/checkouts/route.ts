@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@/lib/database"
+import { supabaseAdmin } from "@/lib/supabase"
 import { requireAuth } from "@/lib/auth"
 
 export async function GET(request: NextRequest) {
@@ -14,50 +14,37 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(Number.parseInt(searchParams.get("limit") || "10"), 100)
     const offset = (page - 1) * limit
 
-    let whereClause = "WHERE c.deleted_at IS NULL"
-    const params: any[] = []
-    let paramIndex = 1
+    let query = supabaseAdmin
+      .from('checkouts')
+      .select(`
+        *,
+        books(id, title, author, isbn),
+        users(id, name, email, student_id)
+      `, { count: 'exact' })
+      .is('deleted_at', null)
 
     if (status) {
-      whereClause += ` AND c.status = $${paramIndex}`
-      params.push(status)
-      paramIndex++
+      query = query.eq('status', status)
     }
 
     if (userId) {
-      whereClause += ` AND c.user_id = $${paramIndex}`
-      params.push(Number.parseInt(userId))
-      paramIndex++
+      query = query.eq('user_id', Number.parseInt(userId))
     }
 
     if (bookId) {
-      whereClause += ` AND c.book_id = $${paramIndex}`
-      params.push(Number.parseInt(bookId))
-      paramIndex++
+      query = query.eq('book_id', Number.parseInt(bookId))
     }
 
-    // Get total count
-    const countQuery = `SELECT COUNT(*) as total FROM checkouts c ${whereClause}`
-    const countResult = await sql.unsafe(countQuery, params)
-    const total = Number.parseInt(countResult[0].total)
+    const { data: checkouts, error, count } = await query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
 
-    // Get checkouts with book and user details
-    const checkoutsQuery = `
-      SELECT c.*, 
-             b.title as book_title, b.author as book_author, b.isbn as book_isbn,
-             u.name as user_name, u.email as user_email, u.student_id as user_student_id
-      FROM checkouts c
-      LEFT JOIN books b ON c.book_id = b.id
-      LEFT JOIN users u ON c.user_id = u.id
-      ${whereClause}
-      ORDER BY c.created_at DESC
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-    `
-    params.push(limit, offset)
+    if (error) {
+      console.error('Database error:', error)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
 
-    const checkouts = await sql.unsafe(checkoutsQuery, params)
-
-    const formattedCheckouts = checkouts.map((checkout) => ({
+    const formattedCheckouts = (checkouts || []).map((checkout: any) => ({
       id: checkout.id,
       book_id: checkout.book_id,
       user_id: checkout.user_id,
@@ -67,27 +54,17 @@ export async function GET(request: NextRequest) {
       status: checkout.status,
       created_at: checkout.created_at,
       updated_at: checkout.updated_at,
-      book: {
-        id: checkout.book_id,
-        title: checkout.book_title,
-        author: checkout.book_author,
-        isbn: checkout.book_isbn,
-      },
-      user: {
-        id: checkout.user_id,
-        name: checkout.user_name,
-        email: checkout.user_email,
-        student_id: checkout.user_student_id,
-      },
+      book: checkout.books,
+      user: checkout.users,
     }))
 
     return NextResponse.json({
       checkouts: formattedCheckouts,
       pagination: {
-        total,
+        total: count || 0,
         page,
         limit,
-        total_pages: Math.ceil(total / limit),
+        total_pages: Math.ceil((count || 0) / limit),
       },
     })
   } catch (error) {
@@ -110,11 +87,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if book exists and is available
-    const books = await sql`
-      SELECT id, status FROM books WHERE id = ${book_id} AND deleted_at IS NULL
-    `
+    const { data: books, error: bookError } = await supabaseAdmin
+      .from('books')
+      .select('id, status')
+      .eq('id', book_id)
+      .is('deleted_at', null)
 
-    if (books.length === 0) {
+    if (bookError) {
+      console.error('Database error:', bookError)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
+
+    if (!books || books.length === 0) {
       return NextResponse.json({ error: "Book not found" }, { status: 404 })
     }
 
@@ -125,90 +109,85 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user exists
-    const users = await sql`
-      SELECT id FROM users WHERE id = ${user_id} AND deleted_at IS NULL
-    `
+    const { data: users, error: userError } = await supabaseAdmin
+      .from('users')
+      .select('id')
+      .eq('id', user_id)
+      .is('deleted_at', null)
 
-    if (users.length === 0) {
+    if (userError) {
+      console.error('Database error:', userError)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
+
+    if (!users || users.length === 0) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
     // Check user's checkout limit (max 5 books)
-    const activeCheckouts = await sql`
-      SELECT COUNT(*) as count FROM checkouts 
-      WHERE user_id = ${user_id} AND status = 'borrowed'
-    `
+    const { data: activeCheckouts, error: checkoutError } = await supabaseAdmin
+      .from('checkouts')
+      .select('id', { count: 'exact' })
+      .eq('user_id', user_id)
+      .eq('status', 'borrowed')
 
-    if (Number.parseInt(activeCheckouts[0].count) >= 5) {
+    if (checkoutError) {
+      console.error('Database error:', checkoutError)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
+
+    if (activeCheckouts && activeCheckouts.length >= 5) {
       return NextResponse.json({ error: "User has reached maximum checkout limit (5 books)" }, { status: 400 })
     }
 
     // Set due date (default 2 weeks from now)
     const dueDateValue = due_date ? new Date(due_date) : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
 
-    // Begin transaction
-    await sql`BEGIN`
+    // Use Supabase transaction (RPC function)
+    const { data: result, error: transactionError } = await supabaseAdmin.rpc('create_checkout', {
+      p_book_id: book_id,
+      p_user_id: user_id,
+      p_due_date: dueDateValue.toISOString()
+    })
 
-    try {
-      // Create checkout
-      const newCheckouts = await sql`
-        INSERT INTO checkouts (book_id, user_id, borrowed_date, due_date, status, created_at, updated_at)
-        VALUES (${book_id}, ${user_id}, NOW(), ${dueDateValue.toISOString()}, 'borrowed', NOW(), NOW())
-        RETURNING id, book_id, user_id, borrowed_date, due_date, status, created_at, updated_at
-      `
-
-      // Update book status
-      await sql`
-        UPDATE books SET status = 'borrowed', updated_at = NOW() WHERE id = ${book_id}
-      `
-
-      await sql`COMMIT`
-
-      const checkout = newCheckouts[0]
-
-      // Get checkout with details
-      const checkoutDetails = await sql`
-        SELECT c.*, 
-               b.title as book_title, b.author as book_author, b.isbn as book_isbn,
-               u.name as user_name, u.email as user_email
-        FROM checkouts c
-        LEFT JOIN books b ON c.book_id = b.id
-        LEFT JOIN users u ON c.user_id = u.id
-        WHERE c.id = ${checkout.id}
-      `
-
-      const detailedCheckout = checkoutDetails[0]
-
-      return NextResponse.json(
-        {
-          checkout: {
-            id: detailedCheckout.id,
-            book_id: detailedCheckout.book_id,
-            user_id: detailedCheckout.user_id,
-            borrowed_date: detailedCheckout.borrowed_date,
-            due_date: detailedCheckout.due_date,
-            status: detailedCheckout.status,
-            created_at: detailedCheckout.created_at,
-            updated_at: detailedCheckout.updated_at,
-            book: {
-              id: detailedCheckout.book_id,
-              title: detailedCheckout.book_title,
-              author: detailedCheckout.book_author,
-              isbn: detailedCheckout.book_isbn,
-            },
-            user: {
-              id: detailedCheckout.user_id,
-              name: detailedCheckout.user_name,
-              email: detailedCheckout.user_email,
-            },
-          },
-        },
-        { status: 201 },
-      )
-    } catch (error) {
-      await sql`ROLLBACK`
-      throw error
+    if (transactionError) {
+      console.error('Transaction error:', transactionError)
+      return NextResponse.json({ error: "Failed to create checkout" }, { status: 500 })
     }
+
+    // Get checkout with details
+    const { data: checkoutDetails, error: detailsError } = await supabaseAdmin
+      .from('checkouts')
+      .select(`
+        *,
+        books(id, title, author, isbn),
+        users(id, name, email)
+      `)
+      .eq('id', result)
+      .single()
+
+    if (detailsError) {
+      console.error('Database error:', detailsError)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
+
+    return NextResponse.json(
+      {
+        checkout: {
+          id: checkoutDetails.id,
+          book_id: checkoutDetails.book_id,
+          user_id: checkoutDetails.user_id,
+          borrowed_date: checkoutDetails.borrowed_date,
+          due_date: checkoutDetails.due_date,
+          status: checkoutDetails.status,
+          created_at: checkoutDetails.created_at,
+          updated_at: checkoutDetails.updated_at,
+          book: checkoutDetails.books,
+          user: checkoutDetails.users,
+        },
+      },
+      { status: 201 },
+    )
   } catch (error) {
     console.error("Create checkout error:", error)
     if (error instanceof Error && error.message.includes("token")) {

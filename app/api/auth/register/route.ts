@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@/lib/database"
+import { supabaseAdmin } from "@/lib/supabase"
 import { generateToken, hashPassword } from "@/lib/jwt"
 
 export async function POST(request: NextRequest) {
@@ -11,21 +11,35 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if email already exists
-    const existingUsers = await sql`
-      SELECT id FROM users WHERE email = ${email} AND deleted_at IS NULL
-    `
+    const { data: existingUsers, error: emailCheckError } = await supabaseAdmin
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .is('deleted_at', null)
 
-    if (existingUsers.length > 0) {
+    if (emailCheckError) {
+      console.error('Database error:', emailCheckError)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
+
+    if (existingUsers && existingUsers.length > 0) {
       return NextResponse.json({ error: "Email already exists" }, { status: 409 })
     }
 
     // Check if student_id already exists (if provided)
     if (student_id) {
-      const existingStudentId = await sql`
-        SELECT id FROM users WHERE student_id = ${student_id} AND deleted_at IS NULL
-      `
+      const { data: existingStudentId, error: studentIdCheckError } = await supabaseAdmin
+        .from('users')
+        .select('id')
+        .eq('student_id', student_id)
+        .is('deleted_at', null)
 
-      if (existingStudentId.length > 0) {
+      if (studentIdCheckError) {
+        console.error('Database error:', studentIdCheckError)
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+      }
+
+      if (existingStudentId && existingStudentId.length > 0) {
         return NextResponse.json({ error: "Student ID already exists" }, { status: 409 })
       }
     }
@@ -34,11 +48,23 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await hashPassword(password)
 
     // Create user
-    const newUsers = await sql`
-      INSERT INTO users (name, email, password, student_id, role, created_at, updated_at)
-      VALUES (${name}, ${email}, ${hashedPassword}, ${student_id || null}, 'user', NOW(), NOW())
-      RETURNING id, name, email, role, student_id, created_at
-    `
+    const { data: newUsers, error: createError } = await supabaseAdmin
+      .from('users')
+      .insert([{
+        name,
+        email,
+        password: hashedPassword,
+        student_id: student_id || null,
+        role: 'user',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }])
+      .select('id, name, email, role, student_id, created_at')
+
+    if (createError) {
+      console.error('Database error:', createError)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
 
     const user = newUsers[0]
 

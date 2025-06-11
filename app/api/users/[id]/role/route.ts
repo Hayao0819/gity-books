@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@/lib/database"
+import { supabaseAdmin } from "@/lib/supabase"
 import { requireAdmin } from "@/lib/auth"
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
@@ -18,21 +18,35 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     // Check if user exists
-    const users = await sql`
-      SELECT id FROM users WHERE id = ${userId} AND deleted_at IS NULL
-    `
+    const { data: users, error: checkError } = await supabaseAdmin
+      .from('users')
+      .select('id')
+      .eq('id', userId)
+      .is('deleted_at', null)
 
-    if (users.length === 0) {
+    if (checkError) {
+      console.error('Database error:', checkError)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
+
+    if (!users || users.length === 0) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
     // Update role
-    const updatedUsers = await sql`
-      UPDATE users 
-      SET role = ${role}, updated_at = NOW()
-      WHERE id = ${userId}
-      RETURNING id, name, email, role, student_id, created_at, updated_at
-    `
+    const { data: updatedUsers, error: updateError } = await supabaseAdmin
+      .from('users')
+      .update({ 
+        role, 
+        updated_at: new Date().toISOString() 
+      })
+      .eq('id', userId)
+      .select('id, name, email, role, student_id, created_at, updated_at')
+
+    if (updateError) {
+      console.error('Database error:', updateError)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
 
     const user = updatedUsers[0]
 

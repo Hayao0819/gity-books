@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@/lib/database"
+import { supabaseAdmin } from "@/lib/supabase"
 import { requireAuth } from "@/lib/auth"
 import { hashPassword, comparePassword } from "@/lib/jwt"
 
@@ -13,11 +13,18 @@ export async function PUT(request: NextRequest) {
     }
 
     // Get user's current password
-    const users = await sql`
-      SELECT password FROM users WHERE id = ${authUser.userId} AND deleted_at IS NULL
-    `
+    const { data: users, error } = await supabaseAdmin
+      .from('users')
+      .select('password')
+      .eq('id', authUser.userId)
+      .is('deleted_at', null)
 
-    if (users.length === 0) {
+    if (error) {
+      console.error('Database error:', error)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
+
+    if (!users || users.length === 0) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
@@ -33,11 +40,18 @@ export async function PUT(request: NextRequest) {
     const hashedNewPassword = await hashPassword(new_password)
 
     // Update password
-    await sql`
-      UPDATE users 
-      SET password = ${hashedNewPassword}, updated_at = NOW()
-      WHERE id = ${authUser.userId}
-    `
+    const { error: updateError } = await supabaseAdmin
+      .from('users')
+      .update({ 
+        password: hashedNewPassword, 
+        updated_at: new Date().toISOString() 
+      })
+      .eq('id', authUser.userId)
+
+    if (updateError) {
+      console.error('Database error:', updateError)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
 
     return NextResponse.json({ message: "Password updated successfully" })
   } catch (error) {

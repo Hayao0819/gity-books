@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@/lib/database"
+import { supabaseAdmin } from "@/lib/supabase"
 import { requireAuth } from "@/lib/auth"
 
 export async function GET(request: NextRequest, { params }: { params: { user_id: string } }) {
@@ -17,36 +17,29 @@ export async function GET(request: NextRequest, { params }: { params: { user_id:
     const limit = Math.min(Number.parseInt(searchParams.get("limit") || "10"), 100)
     const offset = (page - 1) * limit
 
-    let whereClause = "WHERE c.user_id = $1 AND c.deleted_at IS NULL"
-    const queryParams: any[] = [userId]
-    let paramIndex = 2
+    let query = supabaseAdmin
+      .from('checkouts')
+      .select(`
+        *,
+        books(id, title, author, isbn)
+      `, { count: 'exact' })
+      .eq('user_id', userId)
+      .is('deleted_at', null)
 
     if (status) {
-      whereClause += ` AND c.status = $${paramIndex}`
-      queryParams.push(status)
-      paramIndex++
+      query = query.eq('status', status)
     }
 
-    // Get total count
-    const countQuery = `SELECT COUNT(*) as total FROM checkouts c ${whereClause}`
-    const countResult = await sql.unsafe(countQuery, queryParams)
-    const total = Number.parseInt(countResult[0].total)
+    const { data: checkouts, error, count } = await query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
 
-    // Get checkouts with book details
-    const checkoutsQuery = `
-      SELECT c.*, 
-             b.title as book_title, b.author as book_author, b.isbn as book_isbn
-      FROM checkouts c
-      LEFT JOIN books b ON c.book_id = b.id
-      ${whereClause}
-      ORDER BY c.created_at DESC
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-    `
-    queryParams.push(limit, offset)
+    if (error) {
+      console.error('Database error:', error)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
 
-    const checkouts = await sql.unsafe(checkoutsQuery, queryParams)
-
-    const formattedCheckouts = checkouts.map((checkout) => ({
+    const formattedCheckouts = (checkouts || []).map((checkout: any) => ({
       id: checkout.id,
       book_id: checkout.book_id,
       user_id: checkout.user_id,
@@ -56,21 +49,16 @@ export async function GET(request: NextRequest, { params }: { params: { user_id:
       status: checkout.status,
       created_at: checkout.created_at,
       updated_at: checkout.updated_at,
-      book: {
-        id: checkout.book_id,
-        title: checkout.book_title,
-        author: checkout.book_author,
-        isbn: checkout.book_isbn,
-      },
+      book: checkout.books,
     }))
 
     return NextResponse.json({
       checkouts: formattedCheckouts,
       pagination: {
-        total,
+        total: count || 0,
         page,
         limit,
-        total_pages: Math.ceil(total / limit),
+        total_pages: Math.ceil((count || 0) / limit),
       },
     })
   } catch (error) {

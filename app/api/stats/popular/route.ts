@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@/lib/database"
+import { supabaseAdmin } from "@/lib/supabase"
 import { requireAuth } from "@/lib/auth"
 
 export async function GET(request: NextRequest) {
@@ -9,24 +9,35 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const limit = Math.min(Number.parseInt(searchParams.get("limit") || "10"), 50)
 
-    const popularBooks = await sql`
-      SELECT b.id, b.title, b.author, COUNT(c.id) as checkout_count
-      FROM books b
-      LEFT JOIN checkouts c ON b.id = c.book_id AND c.deleted_at IS NULL
-      WHERE b.deleted_at IS NULL
-      GROUP BY b.id, b.title, b.author
-      ORDER BY checkout_count DESC
-      LIMIT ${limit}
-    `
+    // Get popular books using a join query
+    const { data: popularBooks, error } = await supabaseAdmin
+      .from('books')
+      .select(`
+        id,
+        title,
+        author,
+        checkouts!inner(id)
+      `)
+      .is('deleted_at', null)
+      .limit(limit)
 
-    const books = popularBooks.map((book) => ({
+    if (error) {
+      console.error('Database error:', error)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
+
+    // Process the data to count checkouts
+    const booksWithCounts = (popularBooks || []).map((book: any) => ({
       id: book.id,
       title: book.title,
       author: book.author,
-      checkout_count: Number.parseInt(book.checkout_count),
+      checkout_count: book.checkouts?.length || 0,
     }))
 
-    return NextResponse.json({ books })
+    // Sort by checkout count
+    booksWithCounts.sort((a, b) => b.checkout_count - a.checkout_count)
+
+    return NextResponse.json({ books: booksWithCounts.slice(0, limit) })
   } catch (error) {
     console.error("Get popular books error:", error)
     if (error instanceof Error && error.message.includes("token")) {

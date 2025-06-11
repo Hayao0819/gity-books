@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@/lib/database"
+import { supabaseAdmin } from "@/lib/supabase"
 import { requireAuth } from "@/lib/auth"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
@@ -11,35 +11,46 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Invalid book ID" }, { status: 400 })
     }
 
-    const books = await sql`
-      SELECT b.*, 
-             c.id as checkout_id, c.user_id, c.borrowed_date, c.due_date, c.return_date, c.status as checkout_status,
-             u.name as user_name, u.email as user_email
-      FROM books b
-      LEFT JOIN checkouts c ON b.id = c.book_id AND c.status = 'borrowed'
-      LEFT JOIN users u ON c.user_id = u.id
-      WHERE b.id = ${bookId} AND b.deleted_at IS NULL
-    `
+    // Get book details
+    const { data: books, error } = await supabaseAdmin
+      .from('books')
+      .select(`
+        *,
+        checkouts!inner(
+          id,
+          user_id,
+          borrowed_date,
+          due_date,
+          return_date,
+          status,
+          users(id, name, email)
+        )
+      `)
+      .eq('id', bookId)
+      .is('deleted_at', null)
 
-    if (books.length === 0) {
+    if (error) {
+      console.error('Database error:', error)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
+
+    if (!books || books.length === 0) {
       return NextResponse.json({ error: "Book not found" }, { status: 404 })
     }
 
     const book = books[0]
-    const checkouts = books
-      .filter((row) => row.checkout_id)
-      .map((row) => ({
-        id: row.checkout_id,
-        user_id: row.user_id,
-        borrowed_date: row.borrowed_date,
-        due_date: row.due_date,
-        return_date: row.return_date,
-        status: row.checkout_status,
-        user: {
-          id: row.user_id,
-          name: row.user_name,
-          email: row.user_email,
-        },
+
+    // Format checkouts
+    const checkouts = book.checkouts
+      .filter((checkout: any) => checkout.status === 'borrowed')
+      .map((checkout: any) => ({
+        id: checkout.id,
+        user_id: checkout.user_id,
+        borrowed_date: checkout.borrowed_date,
+        due_date: checkout.due_date,
+        return_date: checkout.return_date,
+        status: checkout.status,
+        user: checkout.users,
       }))
 
     return NextResponse.json({
@@ -82,11 +93,18 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     // Check if book exists
-    const existingBooks = await sql`
-      SELECT id, isbn FROM books WHERE id = ${bookId} AND deleted_at IS NULL
-    `
+    const { data: existingBooks, error: checkError } = await supabaseAdmin
+      .from('books')
+      .select('id, isbn')
+      .eq('id', bookId)
+      .is('deleted_at', null)
 
-    if (existingBooks.length === 0) {
+    if (checkError) {
+      console.error('Database error:', checkError)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
+
+    if (!existingBooks || existingBooks.length === 0) {
       return NextResponse.json({ error: "Book not found" }, { status: 404 })
     }
 
@@ -94,24 +112,42 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     // Check ISBN uniqueness if changed
     if (isbn && isbn !== existingBook.isbn) {
-      const duplicateBooks = await sql`
-        SELECT id FROM books WHERE isbn = ${isbn} AND id != ${bookId} AND deleted_at IS NULL
-      `
+      const { data: duplicateBooks, error: duplicateError } = await supabaseAdmin
+        .from('books')
+        .select('id')
+        .eq('isbn', isbn)
+        .neq('id', bookId)
+        .is('deleted_at', null)
 
-      if (duplicateBooks.length > 0) {
+      if (duplicateError) {
+        console.error('Database error:', duplicateError)
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+      }
+
+      if (duplicateBooks && duplicateBooks.length > 0) {
         return NextResponse.json({ error: "Book with this ISBN already exists" }, { status: 409 })
       }
     }
 
     // Update book
-    const updatedBooks = await sql`
-      UPDATE books 
-      SET title = ${title}, author = ${author}, isbn = ${isbn || null}, 
-          publisher = ${publisher || null}, published_year = ${published_year || null}, 
-          description = ${description || null}, updated_at = NOW()
-      WHERE id = ${bookId}
-      RETURNING id, title, author, isbn, publisher, published_year, description, status, created_at, updated_at
-    `
+    const { data: updatedBooks, error: updateError } = await supabaseAdmin
+      .from('books')
+      .update({
+        title,
+        author,
+        isbn: isbn || null,
+        publisher: publisher || null,
+        published_year: published_year || null,
+        description: description || null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', bookId)
+      .select('id, title, author, isbn, publisher, published_year, description, status, created_at, updated_at')
+
+    if (updateError) {
+      console.error('Database error:', updateError)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
 
     const book = updatedBooks[0]
 
@@ -135,11 +171,18 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     // Check if book exists and get its status
-    const books = await sql`
-      SELECT id, status FROM books WHERE id = ${bookId} AND deleted_at IS NULL
-    `
+    const { data: books, error: checkError } = await supabaseAdmin
+      .from('books')
+      .select('id, status')
+      .eq('id', bookId)
+      .is('deleted_at', null)
 
-    if (books.length === 0) {
+    if (checkError) {
+      console.error('Database error:', checkError)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
+
+    if (!books || books.length === 0) {
       return NextResponse.json({ error: "Book not found" }, { status: 404 })
     }
 
@@ -151,19 +194,31 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     // Check for active checkouts
-    const activeCheckouts = await sql`
-      SELECT COUNT(*) as count FROM checkouts 
-      WHERE book_id = ${bookId} AND status = 'borrowed'
-    `
+    const { data: activeCheckouts, error: checkoutError } = await supabaseAdmin
+      .from('checkouts')
+      .select('id', { count: 'exact' })
+      .eq('book_id', bookId)
+      .eq('status', 'borrowed')
 
-    if (Number.parseInt(activeCheckouts[0].count) > 0) {
+    if (checkoutError) {
+      console.error('Database error:', checkoutError)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
+
+    if (activeCheckouts && activeCheckouts.length > 0) {
       return NextResponse.json({ error: "Cannot delete book with active checkouts" }, { status: 400 })
     }
 
     // Soft delete
-    await sql`
-      UPDATE books SET deleted_at = NOW() WHERE id = ${bookId}
-    `
+    const { error: deleteError } = await supabaseAdmin
+      .from('books')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', bookId)
+
+    if (deleteError) {
+      console.error('Database error:', deleteError)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
 
     return NextResponse.json({ message: "Book deleted successfully" })
   } catch (error) {

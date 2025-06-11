@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { sql } from "@/lib/database"
+import { supabaseAdmin } from "@/lib/supabase"
 import { requireAuth } from "@/lib/auth"
 
 export async function GET(request: NextRequest) {
@@ -17,46 +17,47 @@ export async function GET(request: NextRequest) {
     const startDate = new Date(year, month - 1, 1)
     const endDate = new Date(year, month, 0, 23, 59, 59)
 
-    // Get daily checkout counts
-    const checkoutStats = await sql`
-      SELECT DATE(borrowed_date) as date, COUNT(*) as count
-      FROM checkouts 
-      WHERE borrowed_date >= ${startDate.toISOString()} 
-        AND borrowed_date <= ${endDate.toISOString()}
-        AND deleted_at IS NULL
-      GROUP BY DATE(borrowed_date)
-      ORDER BY date
-    `
+    // Get daily checkout counts using Supabase's date functions
+    const { data: checkoutStats, error: checkoutError } = await supabaseAdmin
+      .rpc('get_daily_checkout_stats', {
+        start_date: startDate.toISOString(),
+        end_date: endDate.toISOString()
+      })
+
+    if (checkoutError) {
+      console.error('Database error:', checkoutError)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
 
     // Get daily return counts
-    const returnStats = await sql`
-      SELECT DATE(return_date) as date, COUNT(*) as count
-      FROM checkouts 
-      WHERE return_date >= ${startDate.toISOString()} 
-        AND return_date <= ${endDate.toISOString()}
-        AND status = 'returned'
-        AND deleted_at IS NULL
-      GROUP BY DATE(return_date)
-      ORDER BY date
-    `
+    const { data: returnStats, error: returnError } = await supabaseAdmin
+      .rpc('get_daily_return_stats', {
+        start_date: startDate.toISOString(),
+        end_date: endDate.toISOString()
+      })
+
+    if (returnError) {
+      console.error('Database error:', returnError)
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    }
 
     // Merge data by date
     const statsMap = new Map()
 
-    checkoutStats.forEach((stat) => {
+    checkoutStats?.forEach((stat: any) => {
       const dateStr = stat.date
       if (!statsMap.has(dateStr)) {
         statsMap.set(dateStr, { month: dateStr, checkouts: 0, returns: 0 })
       }
-      statsMap.get(dateStr).checkouts = Number.parseInt(stat.count)
+      statsMap.get(dateStr).checkouts = stat.count
     })
 
-    returnStats.forEach((stat) => {
+    returnStats?.forEach((stat: any) => {
       const dateStr = stat.date
       if (!statsMap.has(dateStr)) {
         statsMap.set(dateStr, { month: dateStr, checkouts: 0, returns: 0 })
       }
-      statsMap.get(dateStr).returns = Number.parseInt(stat.count)
+      statsMap.get(dateStr).returns = stat.count
     })
 
     const stats = Array.from(statsMap.values())
