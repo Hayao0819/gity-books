@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import bcrypt from "bcryptjs"
-import { sql } from "@/lib/database"
+import { supabase } from "@/lib/database"
 import { generateToken } from "@/lib/jwt"
+import bcrypt from "bcryptjs"
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,23 +11,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
-    // Find user by email
-    const users = await sql(
-      `SELECT id, name, email, password, role, student_id, created_at 
-             FROM users 
-             WHERE email = $1 AND deleted_at IS NULL`,
-      [email],
-    )
+    // Get user from database
+    const { data: users, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("email", email)
+      .is("deleted_at", null)
+      .limit(1)
 
-    const user = users[0]
+    if (error) {
+      console.error("Database error:", error)
+      return NextResponse.json({ error: "Database error" }, { status: 500 })
+    }
 
+    const user = users?.[0]
     if (!user) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
     // Verify password
     const isValidPassword = await bcrypt.compare(password, user.password)
-
     if (!isValidPassword) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
@@ -39,12 +42,14 @@ export async function POST(request: NextRequest) {
       role: user.role,
     })
 
-    // Return user data without password
-    const { password: _, ...userWithoutPassword } = user
-
     return NextResponse.json({
       token,
-      user: userWithoutPassword,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
     })
   } catch (error) {
     console.error("Login error:", error)

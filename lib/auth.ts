@@ -1,77 +1,64 @@
-import type { NextRequest } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
-import { verifyToken } from "@/lib/jwt";
+import type { NextRequest } from "next/server"
+import { verifyToken } from "./jwt"
+import { supabase } from "./database"
 
 export interface AuthUser {
-    id: number; // string から number に修正
-    email: string;
-    name: string;
-    role: string;
+  id: number
+  email: string
+  role: string
 }
 
 export async function requireAuth(request: NextRequest): Promise<AuthUser> {
-    try {
-        const authHeader = request.headers.get("authorization");
+  const authHeader = request.headers.get("authorization")
 
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            throw new Error("Missing or invalid authorization header");
-        }
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    throw new Error("Authentication failed: No token provided")
+  }
 
-        const token = authHeader.substring(7);
+  const token = authHeader.substring(7)
 
-        if (!token) {
-            throw new Error("Missing token");
-        }
+  try {
+    const payload = verifyToken(token)
 
-        // Verify JWT token
-        const decoded = verifyToken(token);
+    // Verify user still exists and is active
+    const { data: users, error } = await supabase
+      .from("users")
+      .select("id, email, role")
+      .eq("id", payload.id)
+      .is("deleted_at", null)
+      .limit(1)
 
-        if (!decoded || !decoded.userId) {
-            throw new Error("Invalid token");
-        }
-
-        // Get user from database
-        if (!supabaseAdmin) {
-            throw new Error("Database client not available");
-        }
-
-        const { data: user, error } = await supabaseAdmin
-            .from("users")
-            .select("id, email, name, role")
-            .eq("id", decoded.userId)
-            .is("deleted_at", null)
-            .single();
-
-        if (error || !user) {
-            throw new Error("User not found");
-        }
-
-        return user as AuthUser;
-    } catch (error) {
-        console.error("Auth error:", error);
-        throw new Error(
-            "Authentication failed: " +
-                (error instanceof Error ? error.message : "Unknown error"),
-        );
+    if (error) {
+      console.error("Database error during auth:", error)
+      throw new Error("Authentication failed: Database error")
     }
+
+    const user = users?.[0]
+    if (!user) {
+      throw new Error("Authentication failed: User not found")
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    }
+  } catch (error) {
+    console.error("Auth error:", error)
+    throw new Error("Authentication failed: Invalid token")
+  }
 }
 
-export async function optionalAuth(
-    request: NextRequest,
-): Promise<AuthUser | null> {
-    try {
-        return await requireAuth(request);
-    } catch {
-        return null;
-    }
+export async function optionalAuth(request: NextRequest): Promise<AuthUser | null> {
+  try {
+    return await requireAuth(request)
+  } catch {
+    return null
+  }
 }
 
-export async function requireAdmin(request: NextRequest): Promise<AuthUser> {
-    const user = await requireAuth(request);
-
-    if (user.role !== "admin") {
-        throw new Error("Unauthorized");
-    }
-
-    return user;
+export function requireRole(user: AuthUser, requiredRole: string): void {
+  if (user.role !== requiredRole && user.role !== "admin") {
+    throw new Error("Insufficient permissions")
+  }
 }
