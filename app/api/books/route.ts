@@ -1,11 +1,22 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { supabaseAdmin } from "@/lib/supabase"
-import { optionalAuth } from "@/lib/auth"
-import { requireAuth } from "@/lib/auth"
+import { supabaseAdmin, isSupabaseConfigured } from "@/lib/supabase"
+import { optionalAuth, requireAuth } from "@/lib/auth"
 
 export async function GET(request: NextRequest) {
   try {
-    // 本の一覧表示は認証不要にする（任意）
+    // Check if Supabase is configured
+    if (!isSupabaseConfigured()) {
+      return NextResponse.json(
+        { error: "Database not configured. Please check environment variables." },
+        { status: 503 },
+      )
+    }
+
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: "Database client not available" }, { status: 503 })
+    }
+
+    // Optional authentication for reading books
     const user = await optionalAuth(request)
     console.log("User authenticated:", user ? user.email : "No user")
 
@@ -18,13 +29,11 @@ export async function GET(request: NextRequest) {
 
     console.log("Query params:", { search, status, page, limit, offset })
 
-    // Supabase接続をテスト
-    const { data: testConnection, error: connectionError } = await supabaseAdmin
-      .from("books")
-      .select("count", { count: "exact", head: true })
+    // Test connection first
+    const { error: connectionError } = await supabaseAdmin.from("books").select("count", { count: "exact", head: true })
 
     if (connectionError) {
-      console.error("Supabase connection error:", connectionError)
+      console.error("Database connection error:", connectionError)
       return NextResponse.json(
         {
           error: "Database connection failed",
@@ -33,8 +42,6 @@ export async function GET(request: NextRequest) {
         { status: 500 },
       )
     }
-
-    console.log("Database connection successful")
 
     let query = supabaseAdmin
       .from("books")
@@ -93,9 +100,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // 本の追加は認証が必要
-    const user = await requireAuth(request)
+    if (!isSupabaseConfigured() || !supabaseAdmin) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 503 })
+    }
 
+    const user = await requireAuth(request)
     const { title, author, isbn, publisher, published_year, description } = await request.json()
 
     if (!title || !author) {
