@@ -17,25 +17,25 @@ export interface User {
   name: string
   email: string
   password: string
-  student_id?: string
+  student_id?: string | null
   role: string
   created_at: string
   updated_at: string
-  deleted_at?: string
+  deleted_at?: string | null
 }
 
 export interface Book {
   id: number
   title: string
   author: string
-  isbn?: string
-  publisher?: string
-  published_year?: number
-  description?: string
-  status: string
+  isbn?: string | null
+  publisher?: string | null
+  published_year?: number | null
+  description?: string | null
+  status: "available" | "borrowed" | "maintenance"
   created_at: string
   updated_at: string
-  deleted_at?: string
+  deleted_at?: string | null
 }
 
 export interface Checkout {
@@ -44,14 +44,52 @@ export interface Checkout {
   user_id: number
   borrowed_date: string
   due_date: string
-  return_date?: string
-  status: string
+  return_date?: string | null
+  status: "borrowed" | "returned" | "overdue"
   created_at: string
   updated_at: string
-  deleted_at?: string
+  deleted_at?: string | null
+}
+
+export interface BookDetails {
+  id: number
+  title: string
+  author: string
+  isbn: string | null
+}
+
+export interface UserDetails {
+  id: number
+  name: string
+  email: string
+  student_id: string | null
 }
 
 export interface CheckoutWithDetails extends Checkout {
-  book?: Book
-  user?: User
+  book?: BookDetails
+  user?: UserDetails
+}
+
+// Supabaseのレスポンス型
+export interface SupabaseResponse<T> {
+  data: T | null
+  error: Error | null
+  count?: number
+  status: number
+  statusText: string
+}
+
+// ページネーション情報の型
+export interface PaginationInfo {
+  total: number
+  page: number
+  limit: number
+  total_pages: number
+}
+
+// APIレスポンスの型
+export interface ApiResponse<T> {
+  data: T
+  pagination?: PaginationInfo
+  error?: string
 }
