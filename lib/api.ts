@@ -32,18 +32,19 @@ class ApiClient {
     ): Promise<T> {
         const url = `${this.baseURL}${endpoint}`;
 
-        const headers: HeadersInit = {
-            "Content-Type": "application/json",
-            ...options.headers,
-        };
+        const appendHeaders: [string, string][] = [
+            ["Content-Type", "application/json"],
+        ];
 
         if (this.token) {
-            headers.Authorization = `Bearer ${this.token}`; // 修正: 不完全なコード行を修正
+            // headers.Authorization = `Bearer ${this.token}`;
+            appendHeaders.push(["Authorization", `Bearer ${this.token}`]);
         }
 
         const response = await fetch(url, {
             ...options,
-            headers,
+            ...appendHeaders,
+            // ...options.headers,
         });
 
         if (!response.ok) {

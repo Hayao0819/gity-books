@@ -24,7 +24,7 @@ export async function requireAuth(request: NextRequest): Promise<AuthUser> {
     const { data: users, error } = await supabase
       .from("users")
       .select("id, email, role")
-      .eq("id", payload.id)
+      .eq("id", payload.userId)
       .is("deleted_at", null)
       .limit(1)
 
