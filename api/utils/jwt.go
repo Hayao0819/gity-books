@@ -1,80 +1,89 @@
 package utils
 
 import (
-	"errors"
-	"fmt"
-	"os"
-	"strings"
-	"time"
-	
-	"github.com/golang-jwt/jwt/v5"
-	"library-management/models"
+    "errors"
+    "fmt"
+    "os"
+    "time"
+    
+    "github.com/golang-jwt/jwt/v5"
+    "library-management/models"
 )
 
-// SupabaseのJWT検証用の公開鍵
-var supabaseJWTSecret []byte
+var jwtSecret []byte
 
 func init() {
-	// Supabase JWT Secret (JWT検証用の公開鍵)
-	// 実際の環境では、Supabaseのプロジェクト設定から取得したJWT秘密鍵を使用
-	secret := os.Getenv("SUPABASE_JWT_SECRET")
-	if secret == "" {
-		secret = "your-supabase-jwt-secret-key"
-	}
-	supabaseJWTSecret = []byte(secret)
+    secret := os.Getenv("JWT_SECRET")
+    if secret == "" {
+        secret = "your-secret-key-change-this-in-production"
+    }
+    jwtSecret = []byte(secret)
 }
 
-type SupabaseClaims struct {
-	Sub       string                 `json:"sub"`
-	Email     string                 `json:"email"`
-	Role      string                 `json:"role"`
-	AppMetadata map[string]interface{} `json:"app_metadata"`
-	UserMetadata map[string]interface{} `json:"user_metadata"`
-	jwt.RegisteredClaims
+type Claims struct {
+    UserID uint   `json:"user_id"`
+    Email  string `json:"email"`
+    Role   string `json:"role"`
+    jwt.RegisteredClaims
 }
 
-// ValidateSupabaseToken validates a JWT token from Supabase
-func ValidateSupabaseToken(tokenString string) (*SupabaseClaims, error) {
-	// Bearer トークンの場合、"Bearer "を削除
-	tokenString = strings.Replace(tokenString, "Bearer ", "", 1)
-	
-	token, err := jwt.ParseWithClaims(tokenString, &SupabaseClaims{}, func(token *jwt.Token) (interface{}, error) {
-		// Supabaseは通常HS256アルゴリズムを使用
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return supabaseJWTSecret, nil
-	})
-	
-	if err != nil {
-		return nil, err
-	}
-	
-	if claims, ok := token.Claims.(*SupabaseClaims); ok && token.Valid {
-		return claims, nil
-	}
-	
-	return nil, errors.New("invalid token")
-}
-
-// GenerateToken は従来のJWT生成関数（Supabase認証を使用する場合は不要になる可能性あり）
+// GenerateToken generates a JWT token for the given user
 func GenerateToken(user *models.User) (string, error) {
-	claims := &SupabaseClaims{
-		Sub:    user.ID,
-		Email:  user.Email,
-		Role:   user.Role,
-		AppMetadata: map[string]interface{}{
-			"role": user.Role,
-		},
-		UserMetadata: map[string]interface{}{
-			"name": user.Name,
-		},
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-		},
-	}
-	
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(supabaseJWTSecret)
+    expirationTime := time.Now().Add(24 * time.Hour)
+    
+    claims := &Claims{
+        UserID: user.ID,
+        Email:  user.Email,
+        Role:   user.Role,
+        RegisteredClaims: jwt.RegisteredClaims{
+            ExpiresAt: jwt.NewNumericDate(expirationTime),
+            IssuedAt:  jwt.NewNumericDate(time.Now()),
+            Issuer:    "library-management",
+        },
+    }
+    
+    token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+    return token.SignedString(jwtSecret)
+}
+
+// ValidateToken validates a JWT token and returns the claims
+func ValidateToken(tokenString string) (*Claims, error) {
+    token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+        if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+            return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+        }
+        return jwtSecret, nil
+    })
+    
+    if err != nil {
+        return nil, err
+    }
+    
+    if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+        return claims, nil
+    }
+    
+    return nil, errors.New("invalid token")
+}
+
+// RefreshToken generates a new token for the given user (if the current token is valid)
+func RefreshToken(tokenString string) (string, error) {
+    claims, err := ValidateToken(tokenString)
+    if err != nil {
+        return "", err
+    }
+    
+    // トークンの有効期限が1時間以内の場合のみリフレッシュを許可
+    if time.Until(claims.ExpiresAt.Time) > time.Hour {
+        return "", errors.New("token is still valid for more than 1 hour")
+    }
+    
+    // 新しいトークンを生成
+    user := &models.User{
+        ID:    claims.UserID,
+        Email: claims.Email,
+        Role:  claims.Role,
+    }
+    
+    return GenerateToken(user)
 }

@@ -3,68 +3,83 @@ package handlers
 import (
     "net/http"
     "strconv"
-    "time"
     
     "github.com/gin-gonic/gin"
+    "gorm.io/gorm"
+    
+    "library-management/database"
     "library-management/models"
-    "library-management/utils"
 )
 
 func GetBooks(c *gin.Context) {
     search := c.Query("search")
-    page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-    limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+    page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+    if err != nil || page < 1 {
+        page = 1
+    }
+    
+    limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
+    if err != nil || limit < 1 || limit > 100 {
+        limit = 10
+    }
+    
+    status := c.Query("status")
     offset := (page - 1) * limit
     
     var books []models.Book
-    var err error
+    var total int64
     
-    query := utils.SupabaseClient.From("books").Select("*")
+    query := database.DB.Model(&models.Book{})
     
+    // 検索条件の追加
     if search != "" {
-        query = query.Or("title.ilike.%"+search+"%,author.ilike.%"+search+"%,isbn.ilike.%"+search+"%")
+        searchPattern := "%" + search + "%"
+        query = query.Where("title ILIKE ? OR author ILIKE ? OR isbn ILIKE ?", 
+            searchPattern, searchPattern, searchPattern)
     }
     
-    _, err = query.Range(offset, offset+limit-1).Execute(&books)
-    if err != nil {
+    // ステータスフィルター
+    if status != "" {
+        query = query.Where("status = ?", status)
+    }
+    
+    // 総数を取得
+    if err := query.Count(&total).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count books"})
+        return
+    }
+    
+    // ページネーション付きでデータを取得
+    if err := query.Offset(offset).Limit(limit).Order("created_at DESC").Find(&books).Error; err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch books"})
         return
     }
     
-    // Get total count
-    var totalCount []map[string]interface{}
-    countQuery := utils.SupabaseClient.From("books").Select("count", true)
-    if search != "" {
-        countQuery = countQuery.Or("title.ilike.%"+search+"%,author.ilike.%"+search+"%,isbn.ilike.%"+search+"%")
-    }
-    _, err = countQuery.Execute(&totalCount)
-    
-    total := int64(0)
-    if len(totalCount) > 0 {
-        if count, ok := totalCount[0]["count"].(float64); ok {
-            total = int64(count)
-        }
-    }
-    
     c.JSON(http.StatusOK, gin.H{
         "books": books,
-        "total": total,
-        "page":  page,
-        "limit": limit,
+        "pagination": gin.H{
+            "total":       total,
+            "page":        page,
+            "limit":       limit,
+            "total_pages": (total + int64(limit) - 1) / int64(limit),
+        },
     })
 }
 
 func GetBook(c *gin.Context) {
     id := c.Param("id")
     
-    var books []models.Book
-    _, err := utils.SupabaseClient.From("books").Select("*").Eq("id", id).Execute(&books)
-    if err != nil || len(books) == 0 {
-        c.JSON(http.StatusNotFound, gin.H{"error": "Book not found"})
+    var book models.Book
+    if err := database.DB.Preload("Checkouts.User").Where("id = ?", id).First(&book).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Book not found"})
+        } else {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch book"})
+        }
         return
     }
     
-    c.JSON(http.StatusOK, gin.H{"book": books[0]})
+    c.JSON(http.StatusOK, gin.H{"book": book})
 }
 
 func CreateBook(c *gin.Context) {
@@ -74,73 +89,154 @@ func CreateBook(c *gin.Context) {
         return
     }
     
-    book := map[string]interface{}{
-        "title":          req.Title,
-        "author":         req.Author,
-        "isbn":           req.ISBN,
-        "publisher":      req.Publisher,
-        "published_year": req.PublishedYear,
-        "description":    req.Description,
-        "status":         "available",
-        "created_at":     time.Now(),
-        "updated_at":     time.Now(),
+    // ISBNの重複チェック（ISBNが提供されている場合）
+    if req.ISBN != "" {
+        var existingBook models.Book
+        if err := database.DB.Where("isbn = ?", req.ISBN).First(&existingBook).Error; err == nil {
+            c.JSON(http.StatusConflict, gin.H{"error": "Book with this ISBN already exists"})
+            return
+        }
     }
     
-    var result []models.Book
-    _, err := utils.SupabaseClient.From("books").Insert(book).Execute(&result)
-    if err != nil {
+    book := models.Book{
+        Title:         req.Title,
+        Author:        req.Author,
+        ISBN:          req.ISBN,
+        Publisher:     req.Publisher,
+        PublishedYear: req.PublishedYear,
+        Description:   req.Description,
+        Status:        models.BookStatusAvailable,
+    }
+    
+    if err := database.DB.Create(&book).Error; err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create book"})
         return
     }
     
-    if len(result) > 0 {
-        c.JSON(http.StatusCreated, gin.H{"book": result[0]})
-    } else {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create book"})
-    }
+    c.JSON(http.StatusCreated, gin.H{"book": book})
 }
 
 func UpdateBook(c *gin.Context) {
     id := c.Param("id")
     
-    var req models.CreateBookRequest
+    var book models.Book
+    if err := database.DB.Where("id = ?", id).First(&book).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Book not found"})
+        } else {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch book"})
+        }
+        return
+    }
+    
+    var req models.UpdateBookRequest
     if err := c.ShouldBindJSON(&req); err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
         return
     }
     
-    updates := map[string]interface{}{
-        "title":          req.Title,
-        "author":         req.Author,
-        "isbn":           req.ISBN,
-        "publisher":      req.Publisher,
-        "published_year": req.PublishedYear,
-        "description":    req.Description,
-        "updated_at":     time.Now(),
+    // ISBNの重複チェック（ISBNが変更されている場合）
+    if req.ISBN != "" && req.ISBN != book.ISBN {
+        var existingBook models.Book
+        if err := database.DB.Where("isbn = ? AND id != ?", req.ISBN, id).First(&existingBook).Error; err == nil {
+            c.JSON(http.StatusConflict, gin.H{"error": "Book with this ISBN already exists"})
+            return
+        }
     }
     
-    var result []models.Book
-    _, err := utils.SupabaseClient.From("books").Update(updates).Eq("id", id).Execute(&result)
-    if err != nil {
+    // 本の情報を更新
+    updates := models.Book{
+        Title:         req.Title,
+        Author:        req.Author,
+        ISBN:          req.ISBN,
+        Publisher:     req.Publisher,
+        PublishedYear: req.PublishedYear,
+        Description:   req.Description,
+    }
+    
+    if err := database.DB.Model(&book).Updates(updates).Error; err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update book"})
         return
     }
     
-    if len(result) > 0 {
-        c.JSON(http.StatusOK, gin.H{"book": result[0]})
-    } else {
-        c.JSON(http.StatusNotFound, gin.H{"error": "Book not found"})
+    // 更新された本の情報を取得
+    if err := database.DB.Where("id = ?", id).First(&book).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch updated book"})
+        return
     }
+    
+    c.JSON(http.StatusOK, gin.H{"book": book})
 }
 
 func DeleteBook(c *gin.Context) {
     id := c.Param("id")
     
-    _, err := utils.SupabaseClient.From("books").Delete().Eq("id", id).Execute(nil)
-    if err != nil {
+    var book models.Book
+    if err := database.DB.Where("id = ?", id).First(&book).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Book not found"})
+        } else {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch book"})
+        }
+        return
+    }
+    
+    // 貸出中の本は削除できない
+    if book.Status == models.BookStatusBorrowed {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot delete borrowed book"})
+        return
+    }
+    
+    // アクティブな貸出記録があるかチェック
+    var activeCheckouts int64
+    if err := database.DB.Model(&models.Checkout{}).Where("book_id = ? AND status = ?", 
+        id, models.CheckoutStatusBorrowed).Count(&activeCheckouts).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check active checkouts"})
+        return
+    }
+    
+    if activeCheckouts > 0 {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot delete book with active checkouts"})
+        return
+    }
+    
+    // ソフトデリート
+    if err := database.DB.Delete(&book).Error; err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete book"})
         return
     }
     
-    c.JSON(http.StatusOK, gin.H{"success": true})
+    c.JSON(http.StatusOK, gin.H{"message": "Book deleted successfully"})
+}
+
+func UpdateBookStatus(c *gin.Context) {
+    id := c.Param("id")
+    
+    var req struct {
+        Status string `json:"status" binding:"required,oneof=available borrowed maintenance"`
+    }
+    
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+    
+    var book models.Book
+    if err := database.DB.Where("id = ?", id).First(&book).Error; err != nil {
+        if err == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Book not found"})
+        } else {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch book"})
+        }
+        return
+    }
+    
+    // ステータスの更新
+    if err := database.DB.Model(&book).Update("status", req.Status).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update book status"})
+        return
+    }
+    
+    book.Status = req.Status
+    c.JSON(http.StatusOK, gin.H{"book": book})
 }

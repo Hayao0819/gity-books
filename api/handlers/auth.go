@@ -2,50 +2,97 @@ package handlers
 
 import (
     "net/http"
-    "strings"
     
     "github.com/gin-gonic/gin"
+    "library-management/models"
+    "library-management/services"
     "library-management/utils"
 )
 
-func Login(c *gin.Context) {
-    var req struct {
-        Email    string `json:"email" binding:"required,email"`
-        Password string `json:"password" binding:"required"`
+type AuthHandler struct {
+    userService *services.UserService
+}
+
+func NewAuthHandler(userService *services.UserService) *AuthHandler {
+    return &AuthHandler{
+        userService: userService,
     }
-    
+}
+
+func (h *AuthHandler) Login(c *gin.Context) {
+    var req models.LoginRequest
     if err := c.ShouldBindJSON(&req); err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
         return
     }
     
-    // Use Supabase Auth API for login
-    user, err := utils.SupabaseClient.Auth.SignIn(c, req.Email, req.Password)
+    user, err := h.userService.ValidateCredentials(req.Email, req.Password)
     if err != nil {
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+        c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+        return
+    }
+    
+    // Generate JWT token
+    token, err := utils.GenerateToken(user)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
         return
     }
     
     c.JSON(http.StatusOK, gin.H{
-        "token": user.AccessToken,
+        "token": token,
         "user": gin.H{
-            "id":    user.User.ID,
-            "email": user.User.Email,
-            "name":  user.User.UserMetadata["name"],
-            "role":  user.User.AppMetadata["role"],
+            "id":    user.ID,
+            "email": user.Email,
+            "name":  user.Name,
+            "role":  user.Role,
         },
     })
 }
 
-func GetMe(c *gin.Context) {
+func (h *AuthHandler) Register(c *gin.Context) {
+    var req models.CreateUserRequest
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+    
+    user, err := h.userService.CreateUser(&req)
+    if err != nil {
+        if err.Error() == "email already exists" || err.Error() == "student ID already exists" {
+            c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+        } else {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        }
+        return
+    }
+    
+    // Generate JWT token
+    token, err := utils.GenerateToken(user)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+        return
+    }
+    
+    c.JSON(http.StatusCreated, gin.H{
+        "token": token,
+        "user": gin.H{
+            "id":    user.ID,
+            "email": user.Email,
+            "name":  user.Name,
+            "role":  user.Role,
+        },
+    })
+}
+
+func (h *AuthHandler) GetMe(c *gin.Context) {
     userID, exists := c.Get("user_id")
     if !exists {
         c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
         return
     }
     
-    // Get user from Supabase Auth
-    user, err := utils.SupabaseClient.Auth.User(c, userID.(string))
+    user, err := h.userService.GetUserByID(userID.(uint))
     if err != nil {
         c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
         return
@@ -53,24 +100,45 @@ func GetMe(c *gin.Context) {
     
     c.JSON(http.StatusOK, gin.H{
         "user": gin.H{
-            "id":    user.ID,
-            "email": user.Email,
-            "name":  user.UserMetadata["name"],
-            "role":  user.AppMetadata["role"],
+            "id":         user.ID,
+            "email":      user.Email,
+            "name":       user.Name,
+            "role":       user.Role,
+            "student_id": user.StudentID,
+            "created_at": user.CreatedAt,
         },
     })
 }
 
-func Logout(c *gin.Context) {
-    authHeader := c.GetHeader("Authorization")
-    if authHeader != "" {
-        token := strings.Replace(authHeader, "Bearer ", "", 1)
-        err := utils.SupabaseClient.Auth.SignOut(c, token)
-        if err != nil {
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to logout"})
-            return
-        }
+func (h *AuthHandler) Logout(c *gin.Context) {
+    c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
+}
+
+func (h *AuthHandler) ChangePassword(c *gin.Context) {
+    userID, exists := c.Get("user_id")
+    if !exists {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+        return
     }
     
-    c.JSON(http.StatusOK, gin.H{"success": true})
+    var req struct {
+        CurrentPassword string `json:"current_password" binding:"required"`
+        NewPassword     string `json:"new_password" binding:"required,min=6"`
+    }
+    
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+    
+    if err := h.userService.ChangePassword(userID.(uint), req.CurrentPassword, req.NewPassword); err != nil {
+        if err.Error() == "current password is incorrect" {
+            c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        } else {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        }
+        return
+    }
+    
+    c.JSON(http.StatusOK, gin.H{"message": "Password updated successfully"})
 }
