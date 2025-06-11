@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 
 export function Navigation() {
   const pathname = usePathname()
-  const { user, logout, loading, error, isMockMode } = useAuth()
+  const { user, logout, loading, error } = useAuth()
 
   const navItems = [
     { href: "/", label: "ホーム", icon: Home },
@@ -46,11 +46,6 @@ export function Navigation() {
           <Link href="/" className="flex items-center space-x-2">
             <Book className="h-6 w-6" />
             <span className="font-bold text-xl">図書管理システム</span>
-            {isMockMode && (
-              <Badge variant="secondary" className="ml-2">
-                デモモード
-              </Badge>
-            )}
           </Link>
 
           <div className="flex items-center space-x-1">
@@ -62,8 +57,8 @@ export function Navigation() {
             )}
 
             {navItems.map((item) => {
-              // 認証が必要なアイテムは、ログインしていない場合は表示しない（モックモードは除く）
-              if (item.requireAuth && !user && !isMockMode) {
+              // Hide auth-required items if not logged in
+              if (item.requireAuth && !user) {
                 return null
               }
 
@@ -78,11 +73,16 @@ export function Navigation() {
               )
             })}
 
-            {user || isMockMode ? (
+            {user ? (
               <>
                 <Button variant="ghost" size="sm" className="flex items-center space-x-2">
                   <User className="h-4 w-4" />
-                  <span className="hidden sm:inline">{isMockMode ? "デモユーザー" : user?.email}</span>
+                  <span className="hidden sm:inline">{user.name}</span>
+                  {user.role === "admin" && (
+                    <Badge variant="secondary" className="ml-1">
+                      管理者
+                    </Badge>
+                  )}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={handleLogout} className="flex items-center space-x-2">
                   <LogOut className="h-4 w-4" />

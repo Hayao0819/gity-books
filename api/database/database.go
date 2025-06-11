@@ -9,6 +9,7 @@ import (
     "gorm.io/driver/postgres"
     "gorm.io/gorm"
     "gorm.io/gorm/logger"
+    "golang.org/x/crypto/bcrypt"
     
     "library-management/models"
 )
@@ -19,10 +20,10 @@ var DB *gorm.DB
 func Connect() {
     var err error
     
-    // データベース接続文字列を構築
+    // Build database connection string
     dsn := buildDSN()
     
-    // GORM設定
+    // GORM configuration
     config := &gorm.Config{
         Logger: logger.Default.LogMode(logger.Info),
         NowFunc: func() time.Time {
@@ -30,19 +31,19 @@ func Connect() {
         },
     }
     
-    // データベースに接続
+    // Connect to database
     DB, err = gorm.Open(postgres.Open(dsn), config)
     if err != nil {
         log.Fatalf("Failed to connect to database: %v", err)
     }
     
-    // 接続プールの設定
+    // Configure connection pool
     sqlDB, err := DB.DB()
     if err != nil {
         log.Fatalf("Failed to get database instance: %v", err)
     }
     
-    // 接続プールの設定
+    // Connection pool settings
     sqlDB.SetMaxIdleConns(10)
     sqlDB.SetMaxOpenConns(100)
     sqlDB.SetConnMaxLifetime(time.Hour)
@@ -93,26 +94,36 @@ func Migrate() {
 func SeedData() {
     log.Println("Seeding database with initial data...")
     
-    // 管理者ユーザーの作成
+    // Create admin user
     var adminCount int64
     DB.Model(&models.User{}).Where("role = ?", "admin").Count(&adminCount)
     
     if adminCount == 0 {
-        admin := models.User{
-            Name:     "Administrator",
-            Email:    "admin@library.com",
-            Password: "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi", // password
-            Role:     "admin",
-        }
+        adminEmail := getEnvOrDefault("ADMIN_EMAIL", "admin@library.com")
+        adminPassword := getEnvOrDefault("ADMIN_PASSWORD", "admin123")
+        adminName := getEnvOrDefault("ADMIN_NAME", "Administrator")
         
-        if err := DB.Create(&admin).Error; err != nil {
-            log.Printf("Failed to create admin user: %v", err)
+        // Hash admin password
+        hashedPassword, err := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
+        if err != nil {
+            log.Printf("Failed to hash admin password: %v", err)
         } else {
-            log.Println("Admin user created successfully")
+            admin := models.User{
+                Name:     adminName,
+                Email:    adminEmail,
+                Password: string(hashedPassword),
+                Role:     "admin",
+            }
+            
+            if err := DB.Create(&admin).Error; err != nil {
+                log.Printf("Failed to create admin user: %v", err)
+            } else {
+                log.Printf("Admin user created successfully (email: %s, password: %s)", adminEmail, adminPassword)
+            }
         }
     }
     
-    // サンプル本の作成
+    // Create sample books
     var bookCount int64
     DB.Model(&models.Book{}).Count(&bookCount)
     
@@ -143,6 +154,24 @@ func SeedData() {
                 Publisher:     "Web技術社",
                 PublishedYear: 2024,
                 Description:   "モダンなWeb開発技術の実践的な解説書",
+                Status:        "available",
+            },
+            {
+                Title:         "JavaScript完全ガイド",
+                Author:        "鈴木美咲",
+                ISBN:          "978-4-111222-33-4",
+                Publisher:     "フロントエンド出版",
+                PublishedYear: 2023,
+                Description:   "JavaScriptの基礎から最新機能まで網羅",
+                Status:        "available",
+            },
+            {
+                Title:         "React実践開発",
+                Author:        "高橋健太",
+                ISBN:          "978-4-444555-66-7",
+                Publisher:     "React出版",
+                PublishedYear: 2024,
+                Description:   "Reactを使った実践的なWebアプリケーション開発",
                 Status:        "available",
             },
         }

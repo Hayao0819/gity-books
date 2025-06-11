@@ -2,11 +2,9 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Book, Plus, RotateCcw, ShoppingCart, TrendingUp, AlertCircle } from "lucide-react"
+import { Book, Plus, RotateCcw, ShoppingCart, TrendingUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { isMockMode } from "@/lib/supabase"
 
 export default function HomePage() {
   const [mounted, setMounted] = useState(false)
@@ -42,13 +40,6 @@ export default function HomePage() {
 
   return (
     <div className="space-y-8">
-      {isMockMode && (
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>デモモードで動作しています。Supabaseの設定を確認してください。</AlertDescription>
-        </Alert>
-      )}
-
       <div className="text-center space-y-4">
         <h1 className="text-4xl font-bold">図書管理システム</h1>
         <p className="text-xl text-muted-foreground">効率的な図書の貸出・返却管理</p>

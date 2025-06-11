@@ -12,8 +12,8 @@ importers:
         specifier: latest
         version: 1.2.3(@types/react@18.0.0)(react@18.0.0)
       '@supabase/supabase-js':
-        specifier: latest
-        version: 2.50.0
+        specifier: ^2.38.4
+        version: 2.38.4
       '@types/node':
         specifier: ^20
         version: 20.0.0
@@ -178,11 +178,11 @@ packages:
       '@types/react':
         optional: true
 
-  '@supabase/auth-js@2.70.0':
-    resolution: {integrity: sha512-BaAK/tOAZFJtzF1sE3gJ2FwTjLf4ky3PSvcvLGEgEmO4BSBkwWKu8l67rLLIBZPDnCyV7Owk2uPyKHa0kj5QGg==}
-
   '@supabase/functions-js@2.4.4':
     resolution: {integrity: sha512-WL2p6r4AXNGwop7iwvul2BvOtuJ1YQy8EbOd0dhG1oN1q8el/BIRSFCFnWAMM/vJJlHWLi4ad22sKbKr9mvjoA==}
+
+  '@supabase/gotrue-js@2.70.0':
+    resolution: {integrity: sha512-36qluSKMW4bqB5TeDmGb0iG6VuaxxDDRvehz5RjROaE7hAyr6ME90bmcmVF+nf4Xie8b7/5gldMa/BOim2dyfw==}
 
   '@supabase/node-fetch@2.6.15':
     resolution: {integrity: sha512-1ibVeYUacxWYi9i0cf5efil6adJ9WRyZBLivgjs+AUpewx1F3xPi7gLgaASI2SmIQxPoCEjAsLAzKPgMJVgOUQ==}
@@ -194,11 +194,11 @@ packages:
   '@supabase/realtime-js@2.11.10':
     resolution: {integrity: sha512-SJKVa7EejnuyfImrbzx+HaD9i6T784khuw1zP+MBD7BmJYChegGxYigPzkKX8CK8nGuDntmeSD3fvriaH0EGZA==}
 
-  '@supabase/storage-js@2.7.1':
-    resolution: {integrity: sha512-asYHcyDR1fKqrMpytAS1zjyEfvxuOIp1CIXX7ji4lHHcJKqyk+sLl/Vxgm4sN6u8zvuUtae9e4kDxQP2qrwWBA==}
+  '@supabase/storage-js@2.7.3':
+    resolution: {integrity: sha512-SAvZhTk764yqn37z9M6xeq3zc4Q3Wne5qIWhtqrvlIQksiZN6NMgC8YIYDhPo503dFzIlyy+bURytDGpOMEVVg==}
 
-  '@supabase/supabase-js@2.50.0':
-    resolution: {integrity: sha512-M1Gd5tPaaghYZ9OjeO1iORRqbTWFEz/cF3pPubRnMPzA+A8SiUsXXWDP+DWsASZcjEcVEcVQIAF38i5wrijYOg==}
+  '@supabase/supabase-js@2.38.4':
+    resolution: {integrity: sha512-bYwxm/GosvRqOMIv6YP7qUTZWi/trgHtDWUEZDEmyRHW24d0JYIb1GOt6RaO2hsWlecn88DAJIpjoNbprocgRA==}
 
   '@swc/counter@0.1.3':
     resolution: {integrity: sha512-e2BR4lsJkkRlKZ/qCHPw9ZaSxc0MVUd7gtbtaB7aMvHeJVYe8sOB8DBZkP2DtISHGSku9sCK6T6cnY0CtXrOCQ==}
@@ -873,11 +873,11 @@ snapshots:
     optionalDependencies:
       '@types/react': 18.0.0
 
-  '@supabase/auth-js@2.70.0':
+  '@supabase/functions-js@2.4.4':
     dependencies:
       '@supabase/node-fetch': 2.6.15
 
-  '@supabase/functions-js@2.4.4':
+  '@supabase/gotrue-js@2.70.0':
     dependencies:
       '@supabase/node-fetch': 2.6.15
 
@@ -899,18 +899,18 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@supabase/storage-js@2.7.1':
+  '@supabase/storage-js@2.7.3':
     dependencies:
       '@supabase/node-fetch': 2.6.15
 
-  '@supabase/supabase-js@2.50.0':
+  '@supabase/supabase-js@2.38.4':
     dependencies:
-      '@supabase/auth-js': 2.70.0
       '@supabase/functions-js': 2.4.4
+      '@supabase/gotrue-js': 2.70.0
       '@supabase/node-fetch': 2.6.15
       '@supabase/postgrest-js': 1.19.4
       '@supabase/realtime-js': 2.11.10
-      '@supabase/storage-js': 2.7.1
+      '@supabase/storage-js': 2.7.3
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate

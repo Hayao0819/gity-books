@@ -1,131 +1,106 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { supabase, isMockMode } from "@/lib/supabase"
-import type { User, Session } from "@supabase/supabase-js"
+import { apiClient } from "@/lib/api"
+
+interface User {
+  id: number
+  email: string
+  name: string
+  role: string
+  student_id?: string
+  created_at: string
+}
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // モックモードの場合は認証をスキップ
-    if (isMockMode) {
-      console.log("Running in mock mode - authentication disabled")
-      setLoading(false)
-      return
-    }
-
-    // 現在のセッションを取得
-    const getSession = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase!.auth.getSession()
-
-        if (sessionError) {
-          console.error("Error getting session:", sessionError)
-          setError(sessionError.message)
-        } else {
-          setSession(session)
-          setUser(session?.user ?? null)
-        }
-      } catch (err) {
-        console.error("Unexpected error getting session:", err)
-        setError("認証の初期化に失敗しました")
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    getSession()
-
-    // セッション変更のリスナーを設定
-    const {
-      data: { subscription },
-    } = supabase!.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
-      setError(null)
-    })
-
-    return () => {
-      subscription.unsubscribe()
-    }
+    checkAuthStatus()
   }, [])
 
-  const login = async (email: string, password: string) => {
-    if (isMockMode) {
-      // モックモードでは常に成功
-      const mockUser = {
-        id: "mock-user-id",
-        email: email,
-        user_metadata: { name: "テストユーザー" },
-        app_metadata: { role: "user" },
-      } as User
-
-      setUser(mockUser)
-      return { success: true, data: { user: mockUser } }
-    }
-
+  const checkAuthStatus = async () => {
     try {
-      const { data, error } = await supabase!.auth.signInWithPassword({
-        email,
-        password,
-      })
+      setLoading(true)
+      setError(null)
 
-      if (error) {
-        throw error
+      // Check if token exists
+      const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null
+
+      if (!token) {
+        setLoading(false)
+        return
       }
 
-      return { success: true, data }
+      // Verify token with server
+      const response = await apiClient.getMe()
+      setUser(response.user)
+    } catch (err) {
+      console.error("Auth check failed:", err)
+      setError("認証の確認に失敗しました")
+      // Clear invalid token
+      apiClient.clearToken()
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const login = async (email: string, password: string) => {
+    try {
+      setError(null)
+      const response = await apiClient.login(email, password)
+      setUser(response.user)
+      return { success: true, data: response }
     } catch (error) {
-      console.error("Login error:", error)
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "ログインに失敗しました",
-      }
+      const errorMessage = error instanceof Error ? error.message : "ログインに失敗しました"
+      setError(errorMessage)
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  const register = async (userData: {
+    name: string
+    email: string
+    password: string
+    student_id?: string
+  }) => {
+    try {
+      setError(null)
+      const response = await apiClient.register(userData)
+      setUser(response.user)
+      return { success: true, data: response }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "登録に失敗しました"
+      setError(errorMessage)
+      return { success: false, error: errorMessage }
     }
   }
 
   const logout = async () => {
-    if (isMockMode) {
-      setUser(null)
-      setSession(null)
-      return { success: true }
-    }
-
     try {
-      const { error } = await supabase!.auth.signOut()
-
-      if (error) {
-        throw error
-      }
-
+      await apiClient.logout()
+      setUser(null)
+      setError(null)
       return { success: true }
     } catch (error) {
       console.error("Logout error:", error)
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "ログアウトに失敗しました",
-      }
+      // Even if logout fails on server, clear local state
+      apiClient.clearToken()
+      setUser(null)
+      return { success: true }
     }
   }
 
   return {
     user,
-    session,
     loading,
     error,
     login,
+    register,
     logout,
-    isMockMode,
+    checkAuthStatus,
+    isMockMode: false, // No longer using mock mode
   }
 }
