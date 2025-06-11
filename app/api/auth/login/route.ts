@@ -1,8 +1,9 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase"
-import { generateToken, comparePassword } from "@/lib/jwt"
+import { generateToken } from "@/lib/jwt"
+import bcrypt from "bcryptjs"
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const { email, password } = await request.json()
 
@@ -10,47 +11,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
-    // Find user by email
-    const { data: users, error } = await supabaseAdmin
-      .from('users')
-      .select('id, name, email, password, role, student_id, created_at')
-      .eq('email', email)
-      .is('deleted_at', null)
+    // Get user from database
+    const { data: user, error } = await supabaseAdmin
+      .from("users")
+      .select("id, email, name, role, password_hash")
+      .eq("email", email)
+      .is("deleted_at", null)
+      .single()
 
-    if (error) {
-      console.error('Database error:', error)
-      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
-    }
-
-    if (!users || users.length === 0) {
+    if (error || !user) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
-    const user = users[0]
-
     // Verify password
-    const isValidPassword = await comparePassword(password, user.password)
+    const isValidPassword = await bcrypt.compare(password, user.password_hash)
     if (!isValidPassword) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
     // Generate JWT token
-    const token = generateToken({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-    })
+    const token = generateToken({ userId: user.id, email: user.email, role: user.role })
+
+    // Return user data without password
+    const { password_hash, ...userWithoutPassword } = user
 
     return NextResponse.json({
       token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        student_id: user.student_id,
-        created_at: user.created_at,
-      },
+      user: userWithoutPassword,
     })
   } catch (error) {
     console.error("Login error:", error)

@@ -1,8 +1,9 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase"
-import { generateToken, hashPassword } from "@/lib/jwt"
+import { generateToken } from "@/lib/jwt"
+import bcrypt from "bcryptjs"
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const { name, email, password, student_id } = await request.json()
 
@@ -10,82 +11,50 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Name, email, and password are required" }, { status: 400 })
     }
 
-    // Check if email already exists
-    const { data: existingUsers, error: emailCheckError } = await supabaseAdmin
-      .from('users')
-      .select('id')
-      .eq('email', email)
-      .is('deleted_at', null)
+    // Check if user already exists
+    const { data: existingUser } = await supabaseAdmin
+      .from("users")
+      .select("id")
+      .eq("email", email)
+      .is("deleted_at", null)
+      .single()
 
-    if (emailCheckError) {
-      console.error('Database error:', emailCheckError)
-      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
-    }
-
-    if (existingUsers && existingUsers.length > 0) {
-      return NextResponse.json({ error: "Email already exists" }, { status: 409 })
-    }
-
-    // Check if student_id already exists (if provided)
-    if (student_id) {
-      const { data: existingStudentId, error: studentIdCheckError } = await supabaseAdmin
-        .from('users')
-        .select('id')
-        .eq('student_id', student_id)
-        .is('deleted_at', null)
-
-      if (studentIdCheckError) {
-        console.error('Database error:', studentIdCheckError)
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 })
-      }
-
-      if (existingStudentId && existingStudentId.length > 0) {
-        return NextResponse.json({ error: "Student ID already exists" }, { status: 409 })
-      }
+    if (existingUser) {
+      return NextResponse.json({ error: "User with this email already exists" }, { status: 409 })
     }
 
     // Hash password
-    const hashedPassword = await hashPassword(password)
+    const passwordHash = await bcrypt.hash(password, 12)
 
     // Create user
-    const { data: newUsers, error: createError } = await supabaseAdmin
-      .from('users')
-      .insert([{
-        name,
-        email,
-        password: hashedPassword,
-        student_id: student_id || null,
-        role: 'user',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }])
-      .select('id, name, email, role, student_id, created_at')
+    const { data: newUser, error } = await supabaseAdmin
+      .from("users")
+      .insert([
+        {
+          name,
+          email,
+          password_hash: passwordHash,
+          student_id: student_id || null,
+          role: "user",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ])
+      .select("id, name, email, role, student_id, created_at, updated_at")
+      .single()
 
-    if (createError) {
-      console.error('Database error:', createError)
-      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    if (error) {
+      console.error("Database error:", error)
+      return NextResponse.json({ error: "Failed to create user" }, { status: 500 })
     }
 
-    const user = newUsers[0]
-
     // Generate JWT token
-    const token = generateToken({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-    })
+    const token = generateToken({ userId: newUser.id, email: newUser.email, role: newUser.role })
 
     return NextResponse.json(
       {
         token,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          student_id: user.student_id,
-          created_at: user.created_at,
-        },
+        user: newUser,
       },
       { status: 201 },
     )
