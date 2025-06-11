@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || ""
 
 class ApiClient {
   private baseURL: string
@@ -286,6 +286,230 @@ class ApiClient {
       overdue_books: number
       total_users: number
     }>("/api/stats/overview")
+  }
+
+  // Users methods (admin only)
+  async getUsers(params?: {
+    search?: string
+    role?: string
+    page?: number
+    limit?: number
+  }) {
+    const searchParams = new URLSearchParams()
+    if (params?.search) searchParams.append("search", params.search)
+    if (params?.role) searchParams.append("role", params.role)
+    if (params?.page) searchParams.append("page", params.page.toString())
+    if (params?.limit) searchParams.append("limit", params.limit.toString())
+
+    const query = searchParams.toString()
+    return this.request<{
+      users: Array<{
+        id: number
+        name: string
+        email: string
+        role: string
+        student_id?: string
+        created_at: string
+        updated_at: string
+      }>
+      pagination: {
+        total: number
+        page: number
+        limit: number
+        total_pages: number
+      }
+    }>(`/api/users${query ? `?${query}` : ""}`)
+  }
+
+  async createUser(userData: {
+    name: string
+    email: string
+    password: string
+    student_id?: string
+    role?: string
+  }) {
+    return this.request<{
+      user: {
+        id: number
+        name: string
+        email: string
+        role: string
+        student_id?: string
+        created_at: string
+        updated_at: string
+      }
+    }>("/api/users", {
+      method: "POST",
+      body: JSON.stringify(userData),
+    })
+  }
+
+  async updateUser(
+    id: number,
+    userData: {
+      name: string
+      email: string
+      password?: string
+      student_id?: string
+      role?: string
+    },
+  ) {
+    return this.request<{
+      user: {
+        id: number
+        name: string
+        email: string
+        role: string
+        student_id?: string
+        created_at: string
+        updated_at: string
+      }
+    }>(`/api/users/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(userData),
+    })
+  }
+
+  async deleteUser(id: number) {
+    return this.request<{ message: string }>(`/api/users/${id}`, {
+      method: "DELETE",
+    })
+  }
+
+  async updateUserRole(id: number, role: string) {
+    return this.request<{
+      user: {
+        id: number
+        name: string
+        email: string
+        role: string
+        student_id?: string
+        created_at: string
+        updated_at: string
+      }
+    }>(`/api/users/${id}/role`, {
+      method: "PUT",
+      body: JSON.stringify({ role }),
+    })
+  }
+
+  async getOverdueCheckouts(params?: {
+    page?: number
+    limit?: number
+  }) {
+    const searchParams = new URLSearchParams()
+    if (params?.page) searchParams.append("page", params.page.toString())
+    if (params?.limit) searchParams.append("limit", params.limit.toString())
+
+    const query = searchParams.toString()
+    return this.request<{
+      checkouts: Array<{
+        id: number
+        book_id: number
+        user_id: number
+        borrowed_date: string
+        due_date: string
+        return_date?: string
+        status: string
+        book?: {
+          id: number
+          title: string
+          author: string
+          isbn: string
+        }
+        user?: {
+          id: number
+          name: string
+          email: string
+        }
+      }>
+      pagination: {
+        total: number
+        page: number
+        limit: number
+        total_pages: number
+      }
+    }>(`/api/checkouts/overdue${query ? `?${query}` : ""}`)
+  }
+
+  async getUserCheckouts(
+    userId: number,
+    params?: {
+      status?: string
+      page?: number
+      limit?: number
+    },
+  ) {
+    const searchParams = new URLSearchParams()
+    if (params?.status) searchParams.append("status", params.status)
+    if (params?.page) searchParams.append("page", params.page.toString())
+    if (params?.limit) searchParams.append("limit", params.limit.toString())
+
+    const query = searchParams.toString()
+    return this.request<{
+      checkouts: Array<{
+        id: number
+        book_id: number
+        user_id: number
+        borrowed_date: string
+        due_date: string
+        return_date?: string
+        status: string
+        book?: {
+          id: number
+          title: string
+          author: string
+          isbn: string
+        }
+      }>
+      pagination: {
+        total: number
+        page: number
+        limit: number
+        total_pages: number
+      }
+    }>(`/api/checkouts/user/${userId}${query ? `?${query}` : ""}`)
+  }
+
+  async getMonthlyStats(year?: number, month?: number) {
+    const searchParams = new URLSearchParams()
+    if (year) searchParams.append("year", year.toString())
+    if (month) searchParams.append("month", month.toString())
+
+    const query = searchParams.toString()
+    return this.request<{
+      year: number
+      month: number
+      stats: Array<{
+        month: string
+        checkouts: number
+        returns: number
+      }>
+    }>(`/api/stats/monthly${query ? `?${query}` : ""}`)
+  }
+
+  async getPopularBooks(limit?: number) {
+    const searchParams = new URLSearchParams()
+    if (limit) searchParams.append("limit", limit.toString())
+
+    const query = searchParams.toString()
+    return this.request<{
+      books: Array<{
+        id: number
+        title: string
+        author: string
+        checkout_count: number
+      }>
+    }>(`/api/stats/popular${query ? `?${query}` : ""}`)
+  }
+
+  async getUserStats(userId: number) {
+    return this.request<{
+      total_checkouts: number
+      active_checkouts: number
+      overdue_checkouts: number
+      returned_books: number
+    }>(`/api/stats/user/${userId}`)
   }
 }
 
