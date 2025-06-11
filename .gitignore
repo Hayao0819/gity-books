@@ -15,17 +15,6 @@ api/build/
 api/.env
 api/.env.local
 
-# Go
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-*.test
-*.out
-go.work
-api/main
-
 # Database
 *.db
 *.sqlite
@@ -72,6 +61,4 @@ api/tmp/
 .next/
 out/
 
-# Go specific
-api/vendor/
-api/bin/
+*.tsbuildinfo
