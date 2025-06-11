@@ -1,5 +1,3 @@
-import head from "next/head";
-
 const API_BASE_URL = "";
 
 class ApiClient {
@@ -36,12 +34,11 @@ class ApiClient {
 
         const headers: HeadersInit = {
             "Content-Type": "application/json",
-
             ...options.headers,
         };
 
         if (this.token) {
-            head;
+            headers.Authorization = `Bearer ${this.token}`; // 修正: 不完全なコード行を修正
         }
 
         const response = await fetch(url, {
