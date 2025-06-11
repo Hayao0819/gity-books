@@ -4,7 +4,7 @@
 
 ## 技術スタック
 
-### フロントエンド (web/)
+### フロントエンド
 - Next.js 14
 - TypeScript
 - Tailwind CSS
@@ -15,28 +15,27 @@
 - Go 1.21
 - Gin Framework
 - Supabase (PostgreSQL, 認証, ストレージ)
-- GORM
+- supabase-go
 
 ## プロジェクト構造
 
 \`\`\`
 library-management/
-├── web/                    # Next.jsフロントエンド
-│   ├── app/               # App Router
-│   ├── components/        # Reactコンポーネント
-│   ├── lib/              # ユーティリティ（Supabaseクライアントなど）
-│   ├── package.json
-│   └── ...
-├── api/                   # Goバックエンド
-│   ├── handlers/          # APIハンドラー
-│   ├── models/           # データモデル
-│   ├── middleware/       # ミドルウェア
-│   ├── database/         # データベース設定
-│   ├── utils/            # ユーティリティ（Supabase連携など）
+├── app/                   # Next.js App Router
+├── components/            # Reactコンポーネント
+├── hooks/                # カスタムフック
+├── lib/                  # ユーティリティ（Supabaseクライアントなど）
+├── api/                  # Goバックエンド
+│   ├── handlers/         # APIハンドラー
+│   ├── models/          # データモデル
+│   ├── middleware/      # ミドルウェア
+│   ├── database/        # データベース設定
+│   ├── utils/           # ユーティリティ（Supabase連携など）
 │   ├── main.go
 │   └── ...
-├── docker-compose.yml    # Docker設定
-├── Makefile             # 開発用コマンド
+├── docker-compose.yml   # Docker設定
+├── Makefile            # 開発用コマンド
+├── package.json        # Node.js依存関係
 └── README.md
 \`\`\`
 
@@ -70,22 +69,84 @@ cp api/.env.example api/.env
 SUPABASE_URL=https://your-project-id.supabase.co
 SUPABASE_KEY=your-supabase-anon-key
 SUPABASE_JWT_SECRET=your-supabase-jwt-secret
-SUPABASE_DB_HOST=db.your-project-id.supabase.co
-SUPABASE_DB_PORT=5432
-SUPABASE_DB_USER=postgres
-SUPABASE_DB_PASSWORD=your-database-password
-SUPABASE_DB_NAME=postgres
 \`\`\`
 
 3. フロントエンドの環境変数を設定
 \`\`\`bash
-cp web/.env.local.example web/.env.local
+cp .env.local.example .env.local
 \`\`\`
 
 4. `.env.local`ファイルを編集し、Supabase接続情報を設定:
 \`\`\`
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+\`\`\`
+
+### Supabaseデータベーススキーマの作成
+
+Supabaseダッシュボードで以下のSQLを実行してテーブルを作成:
+
+\`\`\`sql
+-- books テーブル
+CREATE TABLE books (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT NOT NULL,
+  author TEXT NOT NULL,
+  isbn TEXT,
+  publisher TEXT,
+  published_year INTEGER,
+  description TEXT,
+  status TEXT DEFAULT 'available',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- checkouts テーブル
+CREATE TABLE checkouts (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  book_id UUID REFERENCES books(id),
+  user_id UUID REFERENCES auth.users(id),
+  borrowed_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  due_date TIMESTAMP WITH TIME ZONE NOT NULL,
+  return_date TIMESTAMP WITH TIME ZONE,
+  status TEXT DEFAULT 'borrowed',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- インデックスの作成
+CREATE INDEX idx_books_status ON books(status);
+CREATE INDEX idx_books_title ON books(title);
+CREATE INDEX idx_checkouts_status ON checkouts(status);
+CREATE INDEX idx_checkouts_user_id ON checkouts(user_id);
+CREATE INDEX idx_checkouts_book_id ON checkouts(book_id);
+\`\`\`
+
+### Row Level Security (RLS) の設定
+
+\`\`\`sql
+-- RLSを有効化
+ALTER TABLE books ENABLE ROW LEVEL SECURITY;
+ALTER TABLE checkouts ENABLE ROW LEVEL SECURITY;
+
+-- 認証されたユーザーのみアクセス可能
+CREATE POLICY "Books are viewable by authenticated users" ON books
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Books are insertable by authenticated users" ON books
+  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+CREATE POLICY "Books are updatable by authenticated users" ON books
+  FOR UPDATE USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Checkouts are viewable by authenticated users" ON checkouts
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Checkouts are insertable by authenticated users" ON checkouts
+  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+CREATE POLICY "Checkouts are updatable by authenticated users" ON checkouts
+  FOR UPDATE USING (auth.role() = 'authenticated');
 \`\`\`
 
 ### Dockerを使用した起動
@@ -111,14 +172,28 @@ make dev-api
 make dev-web
 \`\`\`
 
-## Supabaseの機能
+## 開発用コマンド
 
-このプロジェクトでは以下のSupabase機能を利用しています:
+\`\`\`bash
+# 開発サーバー起動
+make dev              # フロントエンドとバックエンドを同時起動
+make dev-api          # バックエンドのみ起動
+make dev-web          # フロントエンドのみ起動
 
-1. **認証** - ユーザー登録、ログイン、JWTトークン管理
-2. **データベース** - PostgreSQLデータベースでのデータ管理
-3. **Row Level Security** - データアクセス制御
-4. **ストレージ** - 必要に応じてファイル保存（本の表紙画像など）
+# Docker関連
+make build            # Dockerイメージをビルド
+make up               # Docker Composeで起動
+make down             # Docker Composeを停止
+make logs             # ログを表示
+
+# 依存関係のインストール
+make install          # 全ての依存関係をインストール
+make install-api      # Go依存関係をインストール
+make install-web      # Node.js依存関係をインストール
+
+# クリーンアップ
+make clean            # Dockerリソースをクリーンアップ
+\`\`\`
 
 ## API エンドポイント
 
@@ -140,17 +215,37 @@ make dev-web
 - `PUT /api/checkouts/:id/return` - 返却処理
 - `GET /api/checkouts/overdue` - 延滞本一覧
 
-### ユーザー管理（管理者のみ）
-- `GET /api/users` - ユーザー一覧取得
-- `POST /api/users` - ユーザー追加
-- `PUT /api/users/:id` - ユーザー更新
-- `DELETE /api/users/:id` - ユーザー削除
-
 ### 統計情報
 - `GET /api/stats/overview` - 概要統計
 - `GET /api/stats/monthly` - 月次統計
 - `GET /api/stats/popular` - 人気本ランキング
 
+## アクセス
+
+- フロントエンド: http://localhost:3000
+- バックエンドAPI: http://localhost:8080
+- Supabaseダッシュボード: https://supabase.com/dashboard
+
+## トラブルシューティング
+
+### 1. ページが真っ白になる場合
+- ブラウザの開発者ツール（F12）でコンソールエラーを確認
+- 環境変数が正しく設定されているか確認
+- Supabaseプロジェクトが正常に動作しているか確認
+
+### 2. API接続エラー
+- バックエンドサーバーが起動しているか確認
+- Supabase接続情報が正しいか確認
+- ネットワーク接続を確認
+
+### 3. 認証エラー
+- Supabase認証設定を確認
+- JWT Secretが正しく設定されているか確認
+- RLSポリシーが適切に設定されているか確認
+
 ## ライセンス
 
 MIT License
+\`\`\`
+
+環境変数のサンプルファイルを作成します：

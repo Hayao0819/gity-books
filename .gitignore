@@ -1,18 +1,19 @@
 # Dependencies
 node_modules/
-*/node_modules/
+api/vendor/
 
 # Production builds
 .next/
-*/dist/
-*/build/
+out/
+api/dist/
+api/build/
 
 # Environment variables
 .env
 .env.local
 .env.production
-*/.env
-*/.env.local
+api/.env
+api/.env.local
 
 # Go
 *.exe
@@ -23,6 +24,7 @@ node_modules/
 *.test
 *.out
 go.work
+api/main
 
 # Database
 *.db
@@ -31,6 +33,7 @@ go.work
 # Logs
 *.log
 logs/
+api/logs/
 
 # Runtime data
 pids/
@@ -63,3 +66,12 @@ Thumbs.db
 # Temporary files
 tmp/
 temp/
+api/tmp/
+
+# Next.js specific
+.next/
+out/
+
+# Go specific
+api/vendor/
+api/bin/
