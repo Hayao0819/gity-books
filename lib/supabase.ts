@@ -1,101 +1,25 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js"
+import { createClient } from "@supabase/supabase-js"
+import type { Database } from "./database.types"
 
-// Environment variables
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-// Validation function
-function validateSupabaseConfig(): { isValid: boolean; errors: string[] } {
-  const errors: string[] = []
-
-  if (!supabaseUrl) {
-    errors.push("NEXT_PUBLIC_SUPABASE_URL is not set")
-  }
-
-  if (!supabaseAnonKey) {
-    errors.push("NEXT_PUBLIC_SUPABASE_ANON_KEY is not set")
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors,
-  }
-}
-
-// Safe client creation
-function createSupabaseClient(): SupabaseClient | null {
-  try {
-    const config = validateSupabaseConfig()
-
-    if (!config.isValid) {
-      console.warn("Supabase configuration invalid:", config.errors)
-      return null
-    }
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.warn("Supabase URL or anon key not set, returning null client")
-      return null
-    }
-
-    return createClient(supabaseUrl, supabaseAnonKey)
-  } catch (error) {
-    console.error("Failed to create Supabase client:", error)
-    return null
-  }
-}
-
-function createSupabaseAdminClient(): SupabaseClient | null {
-  try {
-    if (!supabaseUrl) {
-      console.warn("NEXT_PUBLIC_SUPABASE_URL not set for admin client")
-      return null
-    }
-
-    const serviceKey = supabaseServiceKey || supabaseAnonKey
-    if (!serviceKey) {
-      console.warn("No service key or anon key available for admin client")
-      return null
-    }
-
-    return createClient(supabaseUrl, serviceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    })
-  } catch (error) {
-    console.error("Failed to create Supabase admin client:", error)
-    return null
-  }
-}
-
-// Check if Supabase is configured
-export function isSupabaseConfigured(): boolean {
-  return !!(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY)
-}
-
-// Server-side Supabase client (admin)
-export const supabaseAdmin = isSupabaseConfigured()
-  ? createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    })
-  : null
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 // Client-side Supabase client
-export const supabaseClient =
-  typeof window !== "undefined" && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-    : null
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
 
-// Export clients
-// export const supabase = createSupabaseClient();
-// export const supabaseAdmin = createSupabaseAdminClient();
+// Server-side Supabase client (admin)
+export const supabaseAdmin = createClient<Database>(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+  },
+})
 
 // Helper functions
+export function isSupabaseConfigured(): boolean {
+  return !!(supabaseUrl && supabaseAnonKey)
+}
 
 export function getSupabaseConfig() {
   return {
