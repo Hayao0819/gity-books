@@ -1,32 +1,31 @@
 import { NextResponse } from "next/server"
-import { supabaseAdmin } from "@/lib/supabase"
+import { testSupabaseConnection } from "@/lib/supabase"
 
 export async function GET() {
   try {
-    // Test database connection
-    const { data, error } = await supabaseAdmin.from("users").select("count").limit(1)
+    const dbConnected = await testSupabaseConnection()
 
-    if (error) {
-      throw error
+    const health = {
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      database: dbConnected ? "connected" : "disconnected",
+      environment: {
+        supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL ? "set" : "missing",
+        supabase_anon_key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "set" : "missing",
+        supabase_service_key: process.env.SUPABASE_SERVICE_ROLE_KEY ? "set" : "missing",
+        jwt_secret: process.env.JWT_SECRET ? "set" : "missing",
+      },
     }
 
-    return NextResponse.json({
-      status: "healthy",
-      timestamp: new Date().toISOString(),
-      database: "connected",
-      service: "library-management-api",
-    })
+    return NextResponse.json(health)
   } catch (error) {
-    console.error("Health check failed:", error)
+    console.error("Health check error:", error)
     return NextResponse.json(
       {
-        status: "unhealthy",
-        timestamp: new Date().toISOString(),
-        database: "disconnected",
-        service: "library-management-api",
+        status: "error",
         error: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 503 },
+      { status: 500 },
     )
   }
 }

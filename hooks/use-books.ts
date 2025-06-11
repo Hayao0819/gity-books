@@ -32,18 +32,22 @@ export function useBooks(search = "") {
       setLoading(true)
       setError(null)
 
+      console.log("Fetching books with search:", search)
+
       const response = await apiClient.getBooks({
         search: search || undefined,
         page: 1,
         limit: 50, // Get more books for now
       })
 
+      console.log("Books response:", response)
+
       // Transform the data to match the expected format
       const transformedBooks: Book[] = response.books.map((book) => ({
         id: book.id.toString(),
         title: book.title,
         author: book.author,
-        isbn: book.isbn,
+        isbn: book.isbn || "",
         publisher: book.publisher,
         published_year: book.published_year,
         description: book.description,
@@ -52,10 +56,12 @@ export function useBooks(search = "") {
         updated_at: book.updated_at,
       }))
 
+      console.log("Transformed books:", transformedBooks)
       setBooks(transformedBooks)
     } catch (err) {
       console.error("Error fetching books:", err)
-      setError(err instanceof Error ? err.message : "本の取得に失敗しました")
+      const errorMessage = err instanceof Error ? err.message : "本の取得に失敗しました"
+      setError(errorMessage)
       setBooks([])
     } finally {
       setLoading(false)

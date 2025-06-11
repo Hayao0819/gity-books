@@ -1,10 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase"
+import { optionalAuth } from "@/lib/auth"
 import { requireAuth } from "@/lib/auth"
 
 export async function GET(request: NextRequest) {
   try {
-    await requireAuth(request)
+    // 本の一覧表示は認証不要にする（任意）
+    const user = await optionalAuth(request)
+    console.log("User authenticated:", user ? user.email : "No user")
 
     const { searchParams } = new URL(request.url)
     const search = searchParams.get("search") || ""
@@ -12,6 +15,26 @@ export async function GET(request: NextRequest) {
     const page = Number.parseInt(searchParams.get("page") || "1")
     const limit = Math.min(Number.parseInt(searchParams.get("limit") || "10"), 100)
     const offset = (page - 1) * limit
+
+    console.log("Query params:", { search, status, page, limit, offset })
+
+    // Supabase接続をテスト
+    const { data: testConnection, error: connectionError } = await supabaseAdmin
+      .from("books")
+      .select("count", { count: "exact", head: true })
+
+    if (connectionError) {
+      console.error("Supabase connection error:", connectionError)
+      return NextResponse.json(
+        {
+          error: "Database connection failed",
+          details: connectionError.message,
+        },
+        { status: 500 },
+      )
+    }
+
+    console.log("Database connection successful")
 
     let query = supabaseAdmin
       .from("books")
@@ -35,9 +58,17 @@ export async function GET(request: NextRequest) {
     } = await query.order("created_at", { ascending: false }).range(offset, offset + limit - 1)
 
     if (error) {
-      console.error("Database error:", error)
-      return NextResponse.json({ error: "Database error: " + error.message }, { status: 500 })
+      console.error("Database query error:", error)
+      return NextResponse.json(
+        {
+          error: "Database query failed",
+          details: error.message,
+        },
+        { status: 500 },
+      )
     }
+
+    console.log("Books fetched successfully:", books?.length || 0)
 
     return NextResponse.json({
       books: books || [],
@@ -50,11 +81,11 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error("Get books error:", error)
-    if (error instanceof Error && error.message.includes("token")) {
-      return NextResponse.json({ error: error.message }, { status: 401 })
-    }
     return NextResponse.json(
-      { error: "Internal server error: " + (error instanceof Error ? error.message : "Unknown error") },
+      {
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 },
     )
   }
@@ -62,7 +93,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    await requireAuth(request)
+    // 本の追加は認証が必要
+    const user = await requireAuth(request)
 
     const { title, author, isbn, publisher, published_year, description } = await request.json()
 
@@ -116,7 +148,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ book }, { status: 201 })
   } catch (error) {
     console.error("Create book error:", error)
-    if (error instanceof Error && error.message.includes("token")) {
+    if (error instanceof Error && error.message.includes("Authentication failed")) {
       return NextResponse.json({ error: error.message }, { status: 401 })
     }
     return NextResponse.json(

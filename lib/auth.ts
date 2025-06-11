@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server"
-import { verifyToken } from "./jwt"
-import { supabaseAdmin } from "./supabase"
+import { supabaseAdmin } from "@/lib/supabase"
+import { verifyToken } from "@/lib/jwt"
 
 export interface AuthUser {
   id: number
@@ -10,22 +10,31 @@ export interface AuthUser {
 }
 
 export async function requireAuth(request: NextRequest): Promise<AuthUser> {
-  const authHeader = request.headers.get("authorization")
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    throw new Error("Missing or invalid authorization token")
-  }
-
-  const token = authHeader.substring(7)
-
   try {
-    const payload = verifyToken(token)
+    const authHeader = request.headers.get("authorization")
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      throw new Error("Missing or invalid authorization header")
+    }
+
+    const token = authHeader.substring(7)
+
+    if (!token) {
+      throw new Error("Missing token")
+    }
+
+    // Verify JWT token
+    const decoded = verifyToken(token)
+
+    if (!decoded || !decoded.userId) {
+      throw new Error("Invalid token")
+    }
 
     // Get user from database
     const { data: user, error } = await supabaseAdmin
       .from("users")
       .select("id, email, name, role")
-      .eq("id", payload.userId)
+      .eq("id", decoded.userId)
       .is("deleted_at", null)
       .single()
 
@@ -33,18 +42,17 @@ export async function requireAuth(request: NextRequest): Promise<AuthUser> {
       throw new Error("User not found")
     }
 
-    return user
+    return user as AuthUser
   } catch (error) {
-    throw new Error("Invalid or expired token")
+    console.error("Auth error:", error)
+    throw new Error("Authentication failed: " + (error instanceof Error ? error.message : "Unknown error"))
   }
 }
 
-export async function requireAdminAuth(request: NextRequest): Promise<AuthUser> {
-  const user = await requireAuth(request)
-
-  if (user.role !== "admin") {
-    throw new Error("Admin access required")
+export async function optionalAuth(request: NextRequest): Promise<AuthUser | null> {
+  try {
+    return await requireAuth(request)
+  } catch {
+    return null
   }
-
-  return user
 }
