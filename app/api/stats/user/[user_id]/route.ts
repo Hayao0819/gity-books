@@ -10,7 +10,7 @@ export async function GET(
         requireAuth(request);
 
         const userId = Number.parseInt(params.user_id);
-        if (isNaN(userId)) {
+        if (Number.isNaN(userId)) {
             return NextResponse.json(
                 { error: "Invalid user ID" },
                 { status: 400 },

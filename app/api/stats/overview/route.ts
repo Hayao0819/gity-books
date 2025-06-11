@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
             );
         }
 
-       // Get borrowed books
+        // Get borrowed books
         if (!supabaseAdmin) {
             console.error("Supabase admin client is null");
             return NextResponse.json(
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
                 { status: 500 },
             );
         }
-         const { count: borrowedBooks, error: borrowedBooksError } =
+        const { count: borrowedBooks, error: borrowedBooksError } =
             await supabaseAdmin
                 .from("books")
                 .select("*", { count: "exact", head: true })

@@ -22,12 +22,14 @@ export async function GET(request: NextRequest) {
         }
         const { data: popularBooks, error } = await supabaseAdmin
             .from("books")
-            .select(`
+            .select(
+                `
         id,
         title,
         author,
         checkouts!inner(id)
-      `)
+      `,
+            )
             .is("deleted_at", null)
             .limit(limit);
 

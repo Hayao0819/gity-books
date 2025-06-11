@@ -31,7 +31,7 @@ export async function requireAuth(request: NextRequest): Promise<AuthUser> {
         }
 
         // Get user from database
-        const { data: user, error } = await supabaseAdmin
+        const { data: user, error } = await supabaseAdmin!
             .from("users")
             .select("id, email, name, role")
             .eq("id", decoded.userId)
@@ -46,8 +46,7 @@ export async function requireAuth(request: NextRequest): Promise<AuthUser> {
     } catch (error) {
         console.error("Auth error:", error);
         throw new Error(
-            "Authentication failed: " +
-                (error instanceof Error ? error.message : "Unknown error"),
+            `Authentication failed: ${error instanceof Error ? error.message : "Unknown error"}`
         );
     }
 }

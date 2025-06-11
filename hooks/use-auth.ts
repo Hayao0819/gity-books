@@ -54,7 +54,7 @@ export function useAuth() {
         try {
             setError(null);
             const response = await apiClient.login(email, password);
-            setUser({...response.user, created_at: new Date().toISOString()});
+            setUser({ ...response.user, created_at: new Date().toISOString() });
             return { success: true, data: response };
         } catch (error) {
             const errorMessage =
@@ -75,7 +75,7 @@ export function useAuth() {
         try {
             setError(null);
             const response = await apiClient.register(userData);
-            setUser({...response.user, created_at: new Date().toISOString()});
+            setUser({ ...response.user, created_at: new Date().toISOString() });
             return { success: true, data: response };
         } catch (error) {
             const errorMessage =

@@ -33,7 +33,14 @@ function createSupabaseClient(): SupabaseClient | null {
             return null;
         }
 
-        return createClient(supabaseUrl!, supabaseAnonKey!);
+        if (!supabaseUrl || !supabaseAnonKey) {
+            console.warn(
+                "Supabase URL or anon key not set, returning null client",
+            );
+            return null;
+        }
+
+        return createClient(supabaseUrl, supabaseAnonKey);
     } catch (error) {
         console.error("Failed to create Supabase client:", error);
         return null;

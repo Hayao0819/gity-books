@@ -34,12 +34,6 @@ pids/
 coverage/
 *.lcov
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
 # OS
 .DS_Store
 .DS_Store?

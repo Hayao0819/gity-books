@@ -1,3 +1,5 @@
+import head from "next/head";
+
 const API_BASE_URL = "";
 
 class ApiClient {
