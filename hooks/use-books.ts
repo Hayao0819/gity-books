@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { apiClient } from "@/lib/api";
 
 export interface Book {
@@ -11,7 +11,7 @@ export interface Book {
     publisher?: string;
     published_year?: number;
     description?: string;
-    status: "available" | "borrowed" | "maintenance";
+    status: "available" | "borrowed";
     created_at: string;
     updated_at: string;
     borrowedBy?: string;
@@ -23,11 +23,7 @@ export function useBooks(search = "") {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        fetchBooks();
-    }, [search]);
-
-    const fetchBooks = async () => {
+    const fetchBooks = useCallback(async () => {
         try {
             setLoading(true);
             setError(null);
@@ -51,7 +47,9 @@ export function useBooks(search = "") {
                 publisher: book.publisher,
                 published_year: book.published_year,
                 description: book.description,
-                status: book.status as "available" | "borrowed" | "maintenance",
+                status: (book.status === "maintenance"
+                    ? "available"
+                    : book.status) as "available" | "borrowed",
                 created_at: book.created_at,
                 updated_at: book.updated_at,
             }));
@@ -67,7 +65,11 @@ export function useBooks(search = "") {
         } finally {
             setLoading(false);
         }
-    };
+    }, [search]);
+
+    useEffect(() => {
+        fetchBooks();
+    }, [fetchBooks]);
 
     return { books, loading, error, refetch: fetchBooks };
 }

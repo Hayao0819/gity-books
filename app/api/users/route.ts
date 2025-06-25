@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
         }
 
         if (role) {
-            query = query.eq("role", role);
+            query = query.eq("role", role as "user" | "admin");
         }
 
         const {
@@ -174,17 +174,15 @@ export async function POST(request: NextRequest) {
         }
         const { data: newUsers, error: createError } = await supabaseAdmin
             .from("users")
-            .insert([
-                {
-                    name,
-                    email,
-                    password: hashedPassword,
+            .insert([{
+                    name: name,
+                    email: email,
+                    password_hash: hashedPassword,
                     student_id: student_id || null,
                     role: role || "user",
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString(),
-                },
-            ])
+                }])
             .select(
                 "id, name, email, role, student_id, created_at, updated_at",
             );

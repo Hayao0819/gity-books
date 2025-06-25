@@ -10,7 +10,7 @@ export async function PUT(
         requireAdmin(request);
 
         const userId = Number.parseInt(params.id);
-        if (isNaN(userId)) {
+        if (Number.isNaN(userId)) {
             return NextResponse.json(
                 { error: "Invalid user ID" },
                 { status: 400 },

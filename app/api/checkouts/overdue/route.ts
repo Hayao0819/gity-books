@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       `,
                 { count: "exact" },
             )
-            .eq("status", "borrowed")
+            .eq("status", "active")
             .lt("due_date", new Date().toISOString())
             .is("deleted_at", null)
             .order("due_date", { ascending: true })

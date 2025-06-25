@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
         }
 
         if (status) {
-            query = query.eq("status", status);
+            query = query.eq("status", status as "available" | "checked_out" | "reserved" | "maintenance");
         }
 
         const {
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
             if (checkError) {
                 console.error("Database error:", checkError);
                 return NextResponse.json(
-                    { error: "Database error: " + checkError.message },
+                    { error: `Database error: ${checkError.message}` },
                     { status: 500 },
                 );
             }
@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
                     publisher: publisher || null,
                     published_year: published_year || null,
                     description: description || null,
-                    status: "available",
+                    status: "available" as "available" | "checked_out" | "reserved" | "maintenance",
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString(),
                 },
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
         if (createError) {
             console.error("Database error:", createError);
             return NextResponse.json(
-                { error: "Database error: " + createError.message },
+                { error: `Database error: ${createError.message}` },
                 { status: 500 },
             );
         }
@@ -203,8 +203,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
             {
                 error:
-                    "Internal server error: " +
-                    (error instanceof Error ? error.message : "Unknown error"),
+                    `Internal server error: ${error instanceof Error ? error.message : "Unknown error"}`,
             },
             { status: 500 },
         );

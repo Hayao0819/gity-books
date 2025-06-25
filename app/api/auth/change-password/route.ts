@@ -5,7 +5,7 @@ import { hashPassword, comparePassword } from "@/lib/jwt";
 
 export async function PUT(request: NextRequest) {
     try {
-        const authUser = requireAuth(request);
+        const authUser = await requireAuth(request);
         const { current_password, new_password } = await request.json();
 
         if (!current_password || !new_password) {
@@ -25,7 +25,7 @@ export async function PUT(request: NextRequest) {
         }
         const { data: users, error } = await supabaseAdmin
             .from("users")
-            .select("password")
+            .select("password_hash")
             .eq("id", authUser.userId)
             .is("deleted_at", null);
 
@@ -49,7 +49,7 @@ export async function PUT(request: NextRequest) {
         // Verify current password
         const isValidPassword = await comparePassword(
             current_password,
-            user.password,
+            user.password_hash,
         );
         if (!isValidPassword) {
             return NextResponse.json(

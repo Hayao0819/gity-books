@@ -10,7 +10,7 @@ export async function PUT(
         requireAuth(request);
 
         const checkoutId = Number.parseInt(params.id);
-        if (isNaN(checkoutId)) {
+        if (Number.isNaN(checkoutId)) {
             return NextResponse.json(
                 { error: "Invalid checkout ID" },
                 { status: 400 },
@@ -34,7 +34,7 @@ export async function PUT(
             .from("checkouts")
             .select("id, book_id, status")
             .eq("id", checkoutId)
-            .eq("status", "borrowed")
+            .eq("status", "active")
             .is("deleted_at", null);
 
         if (checkError) {
@@ -60,15 +60,15 @@ export async function PUT(
                 { status: 500 },
             );
         }
-        const { data: success, error: returnError } = await supabaseAdmin.rpc(
-            "return_book",
-            {
-                p_checkout_id: checkoutId,
-                p_return_date: returnDate.toISOString(),
-            },
-        );
+        const { data: success, error: returnError } = await supabaseAdmin
+            .from("checkouts")
+            .update({
+                status: "returned",
+                return_date: returnDate.toISOString(),
+            })
+            .eq("id", checkoutId);
 
-        if (returnError || !success) {
+        if (returnError) {
             console.error("Return error:", returnError);
             return NextResponse.json(
                 { error: "Failed to return book" },
@@ -101,7 +101,6 @@ export async function PUT(
                 id: checkoutDetails.id,
                 book_id: checkoutDetails.book_id,
                 user_id: checkoutDetails.user_id,
-                borrowed_date: checkoutDetails.borrowed_date,
                 due_date: checkoutDetails.due_date,
                 return_date: checkoutDetails.return_date,
                 status: checkoutDetails.status,

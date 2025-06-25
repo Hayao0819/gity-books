@@ -10,7 +10,7 @@ export async function GET(
         requireAuth(request);
 
         const userId = Number.parseInt(params.user_id);
-        if (isNaN(userId)) {
+        if (Number.isNaN(userId)) {
             return NextResponse.json(
                 { error: "Invalid user ID" },
                 { status: 400 },
@@ -46,7 +46,7 @@ export async function GET(
             .is("deleted_at", null);
 
         if (status) {
-            query = query.eq("status", status);
+            query = query.eq("status", status as "active" | "returned" | "overdue");
         }
 
         const {
@@ -65,6 +65,7 @@ export async function GET(
             );
         }
 
+        // biome-ignore lint/suspicious/noExplicitAny: <explanation>
         const formattedCheckouts = (checkouts || []).map((checkout: any) => ({
             id: checkout.id,
             book_id: checkout.book_id,

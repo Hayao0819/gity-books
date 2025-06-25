@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
             await supabaseAdmin
                 .from("books")
                 .select("*", { count: "exact", head: true })
-                .eq("status", "borrowed")
+                .eq("status", "checked_out")
                 .is("deleted_at", null);
 
         if (borrowedBooksError) {
@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
             await supabaseAdmin
                 .from("checkouts")
                 .select("*", { count: "exact", head: true })
-                .eq("status", "borrowed")
+                .eq("status", "overdue")
                 .lt("due_date", new Date().toISOString())
                 .is("deleted_at", null);
 

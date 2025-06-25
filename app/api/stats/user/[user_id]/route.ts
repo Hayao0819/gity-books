@@ -45,7 +45,7 @@ export async function GET(
                 .from("checkouts")
                 .select("*", { count: "exact", head: true })
                 .eq("user_id", userId)
-                .eq("status", "borrowed")
+                .eq("status", "active")
                 .is("deleted_at", null);
 
         if (activeError) {
@@ -62,7 +62,7 @@ export async function GET(
                 .from("checkouts")
                 .select("*", { count: "exact", head: true })
                 .eq("user_id", userId)
-                .eq("status", "borrowed")
+                .eq("status", "active")
                 .lt("due_date", new Date().toISOString())
                 .is("deleted_at", null);
 

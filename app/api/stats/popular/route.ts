@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
+import type { Book } from "@/hooks/use-books";
 
 export async function GET(request: NextRequest) {
     try {
@@ -42,7 +43,13 @@ export async function GET(request: NextRequest) {
         }
 
         // Process the data to count checkouts
-        const booksWithCounts = (popularBooks || []).map((book: any) => ({
+        type BookWithCheckouts = {
+            id: number;
+            title: string;
+            author: string;
+            checkouts: { id: number }[];
+        };
+        const booksWithCounts = (popularBooks || []).map((book: BookWithCheckouts) => ({
             id: book.id,
             title: book.title,
             author: book.author,

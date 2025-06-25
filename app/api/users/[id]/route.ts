@@ -11,7 +11,7 @@ export async function GET(
         requireAdmin(request);
 
         const userId = Number.parseInt(params.id);
-        if (isNaN(userId)) {
+        if (Number.isNaN(userId)) {
             return NextResponse.json(
                 { error: "Invalid user ID" },
                 { status: 400 },
@@ -48,15 +48,46 @@ export async function GET(
         const user = users[0];
 
         // Format checkouts
-        const checkouts = (user.checkouts || []).map((checkout: any) => ({
-            id: checkout.id,
-            book_id: checkout.book_id,
-            borrowed_date: checkout.borrowed_date,
-            due_date: checkout.due_date,
-            return_date: checkout.return_date,
-            status: checkout.status,
-            book: checkout.books,
-        }));
+        const checkouts = Array.isArray(user.checkouts)
+            ? user.checkouts
+                  .filter(
+                      (checkout) =>
+                          checkout &&
+                          typeof checkout === "object" &&
+                          "id" in checkout &&
+                          "book_id" in checkout &&
+                          "borrowed_date" in checkout &&
+                          "due_date" in checkout &&
+                          "return_date" in checkout &&
+                          "status" in checkout &&
+                          "books" in checkout,
+                  )
+                  .map((checkout) => {
+                      const c = checkout as {
+                          id: number;
+                          book_id: number;
+                          borrowed_date: string;
+                          due_date: string;
+                          return_date: string | null;
+                          status: "active" | "returned" | "overdue";
+                          books: {
+                              id: number;
+                              title: string;
+                              author: string;
+                              isbn: string;
+                          };
+                      };
+                      return {
+                          id: c.id,
+                          book_id: c.book_id,
+                          borrowed_date: c.borrowed_date,
+                          due_date: c.due_date,
+                          return_date: c.return_date,
+                          status: c.status,
+                          book: c.books,
+                      };
+                  })
+            : [];
 
         return NextResponse.json({
             user: {
@@ -96,7 +127,7 @@ export async function PUT(
         requireAdmin(request);
 
         const userId = Number.parseInt(params.id);
-        if (isNaN(userId)) {
+        if (Number.isNaN(userId)) {
             return NextResponse.json(
                 { error: "Invalid user ID" },
                 { status: 400 },
@@ -190,11 +221,18 @@ export async function PUT(
         }
 
         // Prepare update data
-        const updateData: any = {
+        const updateData: {
+            name: string;
+            email: string;
+            student_id: string | null;
+            role: "user" | "admin";
+            updated_at: string;
+            password?: string;
+        } = {
             name,
             email,
             student_id: student_id || null,
-            role: role || "user",
+            role: role === "admin" ? "admin" : "user",
             updated_at: new Date().toISOString(),
         };
 
@@ -249,7 +287,7 @@ export async function DELETE(
         requireAdmin(request);
 
         const userId = Number.parseInt(params.id);
-        if (isNaN(userId)) {
+        if (Number.isNaN(userId)) {
             return NextResponse.json(
                 { error: "Invalid user ID" },
                 { status: 400 },
@@ -284,7 +322,7 @@ export async function DELETE(
                 .from("checkouts")
                 .select("id", { count: "exact" })
                 .eq("user_id", userId)
-                .eq("status", "borrowed")
+                .eq("status", "active")
                 .is("deleted_at", null);
 
         if (checkoutError) {

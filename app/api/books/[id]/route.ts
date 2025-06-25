@@ -61,7 +61,7 @@ export async function GET(
 
         // Format checkouts
         const checkouts = book.checkouts
-            .filter((checkout: any) => checkout.status === "borrowed")
+            .filter((checkout: any) => checkout.status === "active")
             .map((checkout: any) => ({
                 id: checkout.id,
                 user_id: checkout.user_id,
@@ -274,8 +274,8 @@ export async function DELETE(
 
         const book = books[0];
 
-        // Check if book is borrowed
-        if (book.status === "borrowed") {
+        // Check if book is checked_out
+        if (book.status === "checked_out") {
             return NextResponse.json(
                 { error: "Cannot delete borrowed book" },
                 { status: 400 },
@@ -288,7 +288,7 @@ export async function DELETE(
                 .from("checkouts")
                 .select("id", { count: "exact" })
                 .eq("book_id", bookId)
-                .eq("status", "borrowed");
+                .eq("status", "active");
 
         if (checkoutError) {
             console.error("Database error:", checkoutError);

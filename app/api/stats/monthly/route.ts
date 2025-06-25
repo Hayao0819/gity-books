@@ -32,11 +32,19 @@ export async function GET(request: NextRequest) {
                 { status: 500 },
             );
         }
-        const { data: checkoutStats, error: checkoutError } =
-            await supabaseAdmin.rpc("get_daily_checkout_stats", {
-                start_date: startDate.toISOString(),
-                end_date: endDate.toISOString(),
-            });
+        type DailyStat = { date: string; count: number };
+        const { data: checkoutStatsRaw, error: checkoutError } =
+            await (supabaseAdmin.rpc as unknown as (
+                fn: string,
+                params: Record<string, unknown>
+            ) => Promise<{ data: unknown; error: unknown }>)(
+                "get_daily_checkout_stats",
+                {
+                    start_date: startDate.toISOString(),
+                    end_date: endDate.toISOString(),
+                }
+            );
+        const checkoutStats = checkoutStatsRaw as unknown as DailyStat[];
 
         if (checkoutError) {
             console.error("Database error:", checkoutError);
@@ -54,11 +62,18 @@ export async function GET(request: NextRequest) {
                 { status: 500 },
             );
         }
-        const { data: returnStats, error: returnError } =
-            await supabaseAdmin.rpc("get_daily_return_stats", {
-                start_date: startDate.toISOString(),
-                end_date: endDate.toISOString(),
-            });
+        const { data: returnStatsRaw, error: returnError } =
+            await (supabaseAdmin.rpc as unknown as (
+                fn: string,
+                params: Record<string, unknown>
+            ) => Promise<{ data: unknown; error: unknown }>)(
+                "get_daily_return_stats",
+                {
+                    start_date: startDate.toISOString(),
+                    end_date: endDate.toISOString(),
+                }
+            );
+        const returnStats = returnStatsRaw as unknown as DailyStat[];
 
         if (returnError) {
             console.error("Database error:", returnError);
@@ -69,31 +84,40 @@ export async function GET(request: NextRequest) {
         }
 
         // Merge data by date
-        const statsMap = new Map();
+        const statsMap = new Map<
+            string,
+            { month: string; checkouts: number; returns: number }
+        >();
 
-        checkoutStats?.forEach((stat: any) => {
-            const dateStr = stat.date;
-            if (!statsMap.has(dateStr)) {
-                statsMap.set(dateStr, {
-                    month: dateStr,
-                    checkouts: 0,
-                    returns: 0,
-                });
+        if (Array.isArray(checkoutStats)) {
+            for (const stat of checkoutStats) {
+                const dateStr = stat.date;
+                if (!statsMap.has(dateStr)) {
+                    statsMap.set(dateStr, {
+                        month: dateStr,
+                        checkouts: 0,
+                        returns: 0,
+                    });
+                }
+                const entry = statsMap.get(dateStr);
+                if (entry) entry.checkouts = stat.count;
             }
-            statsMap.get(dateStr).checkouts = stat.count;
-        });
+        }
 
-        returnStats?.forEach((stat: any) => {
-            const dateStr = stat.date;
-            if (!statsMap.has(dateStr)) {
-                statsMap.set(dateStr, {
-                    month: dateStr,
-                    checkouts: 0,
-                    returns: 0,
-                });
+        if (Array.isArray(returnStats)) {
+            for (const stat of returnStats) {
+                const dateStr = stat.date;
+                if (!statsMap.has(dateStr)) {
+                    statsMap.set(dateStr, {
+                        month: dateStr,
+                        checkouts: 0,
+                        returns: 0,
+                    });
+                }
+                const entry = statsMap.get(dateStr);
+                if (entry) entry.returns = stat.count;
             }
-            statsMap.get(dateStr).returns = stat.count;
-        });
+        }
 
         const stats = Array.from(statsMap.values());
 
