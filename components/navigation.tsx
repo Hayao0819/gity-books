@@ -5,21 +5,18 @@ import { usePathname } from "next/navigation";
 import {
     Book,
     Home,
-    LogIn,
     LogOut,
     Plus,
     RotateCcw,
     ShoppingCart,
     User,
-    AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
-import { Badge } from "@/components/ui/badge";
 
 export function Navigation() {
     const pathname = usePathname();
-    const { user, logout, loading, error } = useAuth();
+    const { user, logout, loading, authenticated } = useAuth();
 
     const navItems = [
         { href: "/", label: "ホーム", icon: Home },
@@ -75,15 +72,6 @@ export function Navigation() {
                     </Link>
 
                     <div className="flex items-center space-x-1">
-                        {error && (
-                            <div className="flex items-center space-x-1 text-destructive mr-2">
-                                <AlertCircle className="h-4 w-4" />
-                                <span className="text-xs hidden sm:inline">
-                                    接続エラー
-                                </span>
-                            </div>
-                        )}
-
                         {navItems.map((item) => {
                             // Hide auth-required items if not logged in
                             if (item.requireAuth && !user) {
@@ -115,7 +103,7 @@ export function Navigation() {
                             );
                         })}
 
-                        {user ? (
+                        {authenticated && user ? (
                             <>
                                 <Button
                                     variant="ghost"
@@ -126,14 +114,14 @@ export function Navigation() {
                                     <span className="hidden sm:inline">
                                         {user.name}
                                     </span>
-                                    {user.role === "admin" && (
+                                    {/* {user.role === "admin" && (
                                         <Badge
                                             variant="secondary"
                                             className="ml-1"
                                         >
                                             管理者
                                         </Badge>
-                                    )}
+                                    )} */}
                                 </Button>
                                 <Button
                                     variant="ghost"
@@ -147,19 +135,7 @@ export function Navigation() {
                                     </span>
                                 </Button>
                             </>
-                        ) : (
-                            <Button variant="ghost" size="sm" asChild>
-                                <Link
-                                    href="/login"
-                                    className="flex items-center space-x-2"
-                                >
-                                    <LogIn className="h-4 w-4" />
-                                    <span className="hidden sm:inline">
-                                        ログイン
-                                    </span>
-                                </Link>
-                            </Button>
-                        )}
+                        ) : null}
                     </div>
                 </div>
             </div>

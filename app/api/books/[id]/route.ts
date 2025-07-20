@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+
+import type { Checkout } from "@/types/checkout";
 import { requireAuth } from "@/lib/auth";
 
 export async function GET(
@@ -7,10 +9,10 @@ export async function GET(
     { params }: { params: { id: string } },
 ) {
     try {
-        requireAuth(request);
+        await requireAuth(request);
 
         const bookId = Number.parseInt(params.id);
-        if (isNaN(bookId)) {
+        if (Number.isNaN(bookId)) {
             return NextResponse.json(
                 { error: "Invalid book ID" },
                 { status: 400 },
@@ -32,7 +34,7 @@ export async function GET(
         checkouts!inner(
           id,
           user_id,
-          borrowed_date,
+          checkout_date,
           due_date,
           return_date,
           status,
@@ -60,12 +62,12 @@ export async function GET(
         const book = books[0];
 
         // Format checkouts
-        const checkouts = book.checkouts
-            .filter((checkout: any) => checkout.status === "active")
-            .map((checkout: any) => ({
+        const checkouts = (book.checkouts as (Checkout & { users?: any })[])
+            .filter((checkout) => checkout.status === "active")
+            .map((checkout) => ({
                 id: checkout.id,
                 user_id: checkout.user_id,
-                borrowed_date: checkout.borrowed_date,
+                checkout_date: checkout.checkout_date,
                 due_date: checkout.due_date,
                 return_date: checkout.return_date,
                 status: checkout.status,
@@ -104,10 +106,10 @@ export async function PUT(
     { params }: { params: { id: string } },
 ) {
     try {
-        requireAuth(request);
+        await requireAuth(request);
 
         const bookId = Number.parseInt(params.id);
-        if (isNaN(bookId)) {
+        if (Number.isNaN(bookId)) {
             return NextResponse.json(
                 { error: "Invalid book ID" },
                 { status: 400 },
@@ -240,10 +242,10 @@ export async function DELETE(
     { params }: { params: { id: string } },
 ) {
     try {
-        requireAuth(request);
+        await requireAuth(request);
 
         const bookId = Number.parseInt(params.id);
-        if (isNaN(bookId)) {
+        if (Number.isNaN(bookId)) {
             return NextResponse.json(
                 { error: "Invalid book ID" },
                 { status: 400 },

@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
     try {
-        requireAuth(request);
+        await requireAuth(request);
 
         const { searchParams } = new URL(request.url);
         const page = Number.parseInt(searchParams.get("page") || "1");
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
             id: checkout.id,
             book_id: checkout.book_id,
             user_id: checkout.user_id,
-            borrowed_date: checkout.borrowed_date,
+            checkout_date: checkout.checkout_date,
             due_date: checkout.due_date,
             return_date: checkout.return_date,
             status: checkout.status,

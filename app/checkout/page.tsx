@@ -112,7 +112,13 @@ export default function CheckoutPage() {
                                             ? "bg-primary text-primary-foreground"
                                             : "hover:bg-muted"
                                     }`}
+                                    // tabIndex={0}
                                     onClick={() => setSelectedBook(book)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" || e.key === " ") {
+                                            setSelectedBook(book);
+                                        }
+                                    }}
                                 >
                                     <div className="font-medium">
                                         {book.title}
@@ -156,7 +162,13 @@ export default function CheckoutPage() {
                                             ? "bg-primary text-primary-foreground"
                                             : "hover:bg-muted"
                                     }`}
+                                    // tabIndex={0}
                                     onClick={() => setSelectedUser(user)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" || e.key === " ") {
+                                            setSelectedUser(user);
+                                        }
+                                    }}
                                 >
                                     <div className="font-medium">
                                         {user.name}

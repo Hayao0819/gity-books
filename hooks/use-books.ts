@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { apiClient } from "@/lib/api";
 
-export interface Book {
+// Local interface for the hook's transformed book data
+interface TransformedBook {
     id: string;
     title: string;
     author: string;
@@ -19,7 +20,7 @@ export interface Book {
 }
 
 export function useBooks(search = "") {
-    const [books, setBooks] = useState<Book[]>([]);
+    const [books, setBooks] = useState<TransformedBook[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -39,20 +40,24 @@ export function useBooks(search = "") {
             console.log("Books response:", response);
 
             // Transform the data to match the expected format
-            const transformedBooks: Book[] = response.books.map((book) => ({
-                id: book.id.toString(),
-                title: book.title,
-                author: book.author,
-                isbn: book.isbn || "",
-                publisher: book.publisher,
-                published_year: book.published_year,
-                description: book.description,
-                status: (book.status === "maintenance"
-                    ? "available"
-                    : book.status) as "available" | "borrowed",
-                created_at: book.created_at,
-                updated_at: book.updated_at,
-            }));
+            const transformedBooks: TransformedBook[] = response.books.map(
+                (book) => ({
+                    id: book.id.toString(),
+                    title: book.title,
+                    author: book.author,
+                    isbn: book.isbn || "",
+                    publisher: book.publisher,
+                    published_year: book.published_year,
+                    description: book.description,
+                    status: (book.status === "maintenance"
+                        ? "available"
+                        : book.status === "checked_out"
+                          ? "borrowed"
+                          : "available") as "available" | "borrowed",
+                    created_at: book.created_at,
+                    updated_at: book.updated_at,
+                }),
+            );
 
             console.log("Transformed books:", transformedBooks);
             setBooks(transformedBooks);
@@ -73,3 +78,6 @@ export function useBooks(search = "") {
 
     return { books, loading, error, refetch: fetchBooks };
 }
+
+// Export the TransformedBook type for use in components
+export type { TransformedBook as Book };

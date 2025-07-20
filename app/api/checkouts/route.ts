@@ -55,7 +55,7 @@ interface FormattedCheckout {
 
 export async function GET(request: NextRequest) {
     try {
-        requireAuth(request);
+        await requireAuth(request);
 
         const { searchParams } = new URL(request.url);
         const status = searchParams.get("status") || "";
@@ -88,7 +88,10 @@ export async function GET(request: NextRequest) {
             .is("deleted_at", null);
 
         if (status) {
-            query = query.eq("status", status as "active" | "returned" | "overdue");
+            query = query.eq(
+                "status",
+                status as "active" | "returned" | "overdue",
+            );
         }
 
         if (userId) {
@@ -116,22 +119,22 @@ export async function GET(request: NextRequest) {
         }
 
         const formattedCheckouts: FormattedCheckout[] = (checkouts || []).map(
-            (checkout: SupabaseCheckout) => ({
+            (checkout: any) => ({
                 id: checkout.id,
                 book_id: checkout.book_id,
                 user_id: checkout.user_id,
-                checkout_date: checkout.checkout_date,
-                due_date: checkout.due_date,
-                return_date: checkout.return_date || undefined,
+                checkout_date: checkout.checkout_date ?? "",
+                due_date: checkout.due_date ?? "",
+                return_date: checkout.return_date ?? undefined,
                 status: checkout.status,
-                created_at: checkout.created_at,
-                updated_at: checkout.updated_at,
+                created_at: checkout.created_at ?? "",
+                updated_at: checkout.updated_at ?? "",
                 book: checkout.books
                     ? {
                           id: checkout.books.id,
                           title: checkout.books.title,
                           author: checkout.books.author,
-                          isbn: checkout.books.isbn || "",
+                          isbn: checkout.books.isbn ?? "",
                       }
                     : undefined,
                 user: checkout.users
@@ -139,7 +142,7 @@ export async function GET(request: NextRequest) {
                           id: checkout.users.id,
                           name: checkout.users.name,
                           email: checkout.users.email,
-                          student_id: checkout.users.student_id || undefined,
+                          student_id: checkout.users.student_id ?? undefined,
                       }
                     : undefined,
             }),
@@ -168,7 +171,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
-        requireAuth(request);
+        await requireAuth(request);
 
         const { book_id, user_id, due_date } = await request.json();
 
@@ -305,18 +308,18 @@ export async function POST(request: NextRequest) {
         }
 
         // Create checkout
-        const { data: checkoutResult, error } =
-            await supabaseAdmin
-                .from("checkouts")
-                .insert([
-                    {
-                        book_id: book_id,
-                        user_id: user_id,
-                        due_date: dueDateValue.toISOString(),
-                    },
-                ])
-                .select()
-                .single();
+        const { data: checkoutResult, error } = await supabaseAdmin
+            .from("checkouts")
+            .insert([
+                {
+                    book_id: book_id,
+                    user_id: user_id,
+                    due_date: dueDateValue.toISOString(),
+                    status: "active", // 新規チェックアウトはactive
+                },
+            ])
+            .select()
+            .single();
 
         if (error) {
             console.error("Checkout error:", error);
@@ -334,7 +337,6 @@ export async function POST(request: NextRequest) {
         }
 
         const result = checkoutResult?.id;
-
 
         // Get checkout with details
         let checkoutDetails: SupabaseCheckout | null;
@@ -369,18 +371,20 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json(
             {
-                checkout: checkoutDetails ? {
-                    id: checkoutDetails?.id,
-                    book_id: checkoutDetails?.book_id,
-                    user_id: checkoutDetails?.user_id,
-                    checkout_date: checkoutDetails?.checkout_date,
-                    due_date: checkoutDetails?.due_date,
-                    status: checkoutDetails?.status,
-                    created_at: checkoutDetails?.created_at,
-                    updated_at: checkoutDetails?.updated_at,
-                    book: checkoutDetails?.books,
-                    user: checkoutDetails?.users,
-                } : null,
+                checkout: checkoutDetails
+                    ? {
+                          id: checkoutDetails?.id,
+                          book_id: checkoutDetails?.book_id,
+                          user_id: checkoutDetails?.user_id,
+                          checkout_date: checkoutDetails?.checkout_date,
+                          due_date: checkoutDetails?.due_date,
+                          status: checkoutDetails?.status,
+                          created_at: checkoutDetails?.created_at,
+                          updated_at: checkoutDetails?.updated_at,
+                          book: checkoutDetails?.books,
+                          user: checkoutDetails?.users,
+                      }
+                    : null,
             },
             { status: 201 },
         );

@@ -2,28 +2,8 @@ const API_BASE_URL = "";
 
 class ApiClient {
     private baseURL: string;
-    private token: string | null = null;
-
     constructor(baseURL: string) {
         this.baseURL = baseURL;
-        // Load token from localStorage if available
-        if (typeof window !== "undefined") {
-            this.token = localStorage.getItem("auth_token");
-        }
-    }
-
-    setToken(token: string) {
-        this.token = token;
-        if (typeof window !== "undefined") {
-            localStorage.setItem("auth_token", token);
-        }
-    }
-
-    clearToken() {
-        this.token = null;
-        if (typeof window !== "undefined") {
-            localStorage.removeItem("auth_token");
-        }
     }
 
     private async request<T>(
@@ -35,10 +15,6 @@ class ApiClient {
         // ヘッダーを作成
         const headers = new Headers(options.headers);
         headers.set("Content-Type", "application/json");
-
-        if (this.token) {
-            headers.set("Authorization", `Bearer ${this.token}`);
-        }
 
         const response = await fetch(url, {
             ...options,
@@ -55,54 +31,7 @@ class ApiClient {
         return response.json();
     }
 
-    // Auth methods
-    async login(email: string, password: string) {
-        const response = await this.request<{
-            token: string;
-            user: {
-                id: number;
-                email: string;
-                name: string;
-                role: string;
-            };
-        }>("/api/auth/login", {
-            method: "POST",
-            body: JSON.stringify({ email, password }),
-        });
-
-        this.setToken(response.token);
-        return response;
-    }
-
-    async register(userData: {
-        name: string;
-        email: string;
-        password: string;
-        student_id?: string;
-    }) {
-        const response = await this.request<{
-            token: string;
-            user: {
-                id: number;
-                email: string;
-                name: string;
-                role: string;
-            };
-        }>("/api/auth/register", {
-            method: "POST",
-            body: JSON.stringify(userData),
-        });
-
-        this.setToken(response.token);
-        return response;
-    }
-
-    async logout() {
-        await this.request("/api/auth/logout", {
-            method: "POST",
-        });
-        this.clearToken();
-    }
+    // Auth methods (Keycloak handles login/register/logout)
 
     async getMe() {
         return this.request<{
@@ -222,7 +151,7 @@ class ApiClient {
                 id: number;
                 book_id: number;
                 user_id: number;
-                borrowed_date: string;
+                checkout_date: string;
                 due_date: string;
                 return_date?: string;
                 status: string;
@@ -257,7 +186,7 @@ class ApiClient {
                 id: number;
                 book_id: number;
                 user_id: number;
-                borrowed_date: string;
+                checkout_date: string;
                 due_date: string;
                 status: string;
             };
@@ -273,7 +202,7 @@ class ApiClient {
                 id: number;
                 book_id: number;
                 user_id: number;
-                borrowed_date: string;
+                checkout_date: string;
                 due_date: string;
                 return_date: string;
                 status: string;
@@ -330,35 +259,11 @@ class ApiClient {
         }>(`/api/users${query ? `?${query}` : ""}`);
     }
 
-    async createUser(userData: {
-        name: string;
-        email: string;
-        password: string;
-        student_id?: string;
-        role?: string;
-    }) {
-        return this.request<{
-            user: {
-                id: number;
-                name: string;
-                email: string;
-                role: string;
-                student_id?: string;
-                created_at: string;
-                updated_at: string;
-            };
-        }>("/api/users", {
-            method: "POST",
-            body: JSON.stringify(userData),
-        });
-    }
+    // User creation removed - users are created automatically via Keycloak authentication
 
     async updateUser(
         id: number,
         userData: {
-            name: string;
-            email: string;
-            password?: string;
             student_id?: string;
             role?: string;
         },
@@ -373,7 +278,7 @@ class ApiClient {
                 created_at: string;
                 updated_at: string;
             };
-        }>("/api/users/${id}", {
+        }>(`/api/users/${id}`, {
             method: "PUT",
             body: JSON.stringify(userData),
         });
@@ -414,7 +319,7 @@ class ApiClient {
                 id: number;
                 book_id: number;
                 user_id: number;
-                borrowed_date: string;
+                checkout_date: string;
                 due_date: string;
                 return_date?: string;
                 status: string;
@@ -459,7 +364,7 @@ class ApiClient {
                 id: number;
                 book_id: number;
                 user_id: number;
-                borrowed_date: string;
+                checkout_date: string;
                 due_date: string;
                 return_date?: string;
                 status: string;

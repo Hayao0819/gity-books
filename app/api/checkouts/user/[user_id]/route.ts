@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+
+import type { Checkout } from "@/types/checkout";
 import { requireAuth } from "@/lib/auth";
 
 export async function GET(
@@ -7,7 +9,7 @@ export async function GET(
     { params }: { params: { user_id: string } },
 ) {
     try {
-        requireAuth(request);
+        await requireAuth(request);
 
         const userId = Number.parseInt(params.user_id);
         if (Number.isNaN(userId)) {
@@ -46,7 +48,10 @@ export async function GET(
             .is("deleted_at", null);
 
         if (status) {
-            query = query.eq("status", status as "active" | "returned" | "overdue");
+            query = query.eq(
+                "status",
+                status as "active" | "returned" | "overdue",
+            );
         }
 
         const {
@@ -65,19 +70,21 @@ export async function GET(
             );
         }
 
-        // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-        const formattedCheckouts = (checkouts || []).map((checkout: any) => ({
-            id: checkout.id,
-            book_id: checkout.book_id,
-            user_id: checkout.user_id,
-            borrowed_date: checkout.borrowed_date,
-            due_date: checkout.due_date,
-            return_date: checkout.return_date,
-            status: checkout.status,
-            created_at: checkout.created_at,
-            updated_at: checkout.updated_at,
-            book: checkout.books,
-        }));
+        const formattedCheckouts = (checkouts || []).map(
+            // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+            (checkout: any) => ({
+                id: checkout.id,
+                book_id: checkout.book_id,
+                user_id: checkout.user_id,
+                checkout_date: checkout.checkout_date,
+                due_date: checkout.due_date,
+                return_date: checkout.return_date,
+                status: checkout.status,
+                created_at: checkout.created_at,
+                updated_at: checkout.updated_at,
+                book: checkout.books,
+            }),
+        );
 
         return NextResponse.json({
             checkouts: formattedCheckouts,

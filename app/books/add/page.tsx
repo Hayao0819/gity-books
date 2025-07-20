@@ -11,6 +11,7 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,7 +22,7 @@ export default function AddBookPage() {
         author: "",
         isbn: "",
         publisher: "",
-        publishedYear: "",
+        published_year: "",
         description: "",
     });
 
@@ -82,7 +83,7 @@ export default function AddBookPage() {
                                     id="isbn"
                                     name="isbn"
                                     placeholder="978-4-123456-78-9"
-                                    value={formData.isbn}
+                                    value={formData.isbn ?? ""}
                                     onChange={handleChange}
                                 />
                             </div>
@@ -91,20 +92,20 @@ export default function AddBookPage() {
                                 <Input
                                     id="publisher"
                                     name="publisher"
-                                    value={formData.publisher}
+                                    value={formData.publisher ?? ""}
                                     onChange={handleChange}
                                 />
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="publishedYear">出版年</Label>
+                            <Label htmlFor="published_year">出版年</Label>
                             <Input
-                                id="publishedYear"
-                                name="publishedYear"
+                                id="published_year"
+                                name="published_year"
                                 type="number"
                                 placeholder="2024"
-                                value={formData.publishedYear}
+                                value={formData.published_year}
                                 onChange={handleChange}
                             />
                         </div>
@@ -115,7 +116,7 @@ export default function AddBookPage() {
                                 id="description"
                                 name="description"
                                 placeholder="本の内容や特徴を入力してください"
-                                value={formData.description}
+                                value={formData.description || ""}
                                 onChange={handleChange}
                                 rows={4}
                             />

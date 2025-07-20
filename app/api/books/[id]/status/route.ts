@@ -10,7 +10,7 @@ export async function PUT(
         requireAuth(request);
 
         const bookId = Number.parseInt(params.id);
-        if (isNaN(bookId)) {
+        if (Number.isNaN(bookId)) {
             return NextResponse.json(
                 { error: "Invalid book ID" },
                 { status: 400 },

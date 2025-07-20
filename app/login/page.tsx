@@ -1,9 +1,6 @@
 "use client";
 
-import type React from "react";
-
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -12,34 +9,20 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useAuth } from "@/hooks/use-auth";
+
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function LoginPage() {
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const { login } = useAuth();
-    const router = useRouter();
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleLogin = async () => {
         setError(null);
         setIsLoading(true);
-
         try {
-            const result = await login(email, password);
-
-            if (!result.success) {
-                setError(result.error as string);
-                return;
-            }
-
-            // ログイン成功
-            router.push("/");
+            await login();
         } catch (err) {
             setError("ログイン処理中にエラーが発生しました");
             console.error(err);
@@ -65,39 +48,14 @@ export default function LoginPage() {
                             <AlertDescription>{error}</AlertDescription>
                         </Alert>
                     )}
-
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="email">メールアドレス</Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                placeholder="your@example.com"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                required
-                                disabled={isLoading}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="password">パスワード</Label>
-                            <Input
-                                id="password"
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                                disabled={isLoading}
-                            />
-                        </div>
-                        <Button
-                            type="submit"
-                            className="w-full"
-                            disabled={isLoading}
-                        >
-                            {isLoading ? "ログイン中..." : "ログイン"}
-                        </Button>
-                    </form>
+                    <Button
+                        type="button"
+                        className="w-full"
+                        disabled={isLoading}
+                        onClick={handleLogin}
+                    >
+                        {isLoading ? "ログイン中..." : "ログイン"}
+                    </Button>
                 </CardContent>
             </Card>
         </div>
