@@ -2,25 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { apiClient } from "@/lib/api";
-
-// Local interface for the hook's transformed book data
-interface TransformedBook {
-    id: string;
-    title: string;
-    author: string;
-    isbn: string;
-    publisher?: string;
-    published_year?: number;
-    description?: string;
-    status: "available" | "borrowed";
-    created_at: string;
-    updated_at: string;
-    borrowedBy?: string;
-    dueDate?: string;
-}
+import type { Book } from "@/types/book";
 
 export function useBooks(search = "") {
-    const [books, setBooks] = useState<TransformedBook[]>([]);
+    const [books, setBooks] = useState<Book[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -40,24 +25,22 @@ export function useBooks(search = "") {
             console.log("Books response:", response);
 
             // Transform the data to match the expected format
-            const transformedBooks: TransformedBook[] = response.books.map(
-                (book) => ({
-                    id: book.id.toString(),
-                    title: book.title,
-                    author: book.author,
-                    isbn: book.isbn || "",
-                    publisher: book.publisher,
-                    published_year: book.published_year,
-                    description: book.description,
-                    status: (book.status === "maintenance"
-                        ? "available"
-                        : book.status === "checked_out"
-                          ? "borrowed"
-                          : "available") as "available" | "borrowed",
-                    created_at: book.created_at,
-                    updated_at: book.updated_at,
-                }),
-            );
+            const transformedBooks: Book[] = response.books.map((book) => ({
+                id: book.id.toString(),
+                title: book.title,
+                author: book.author,
+                isbn: book.isbn ?? null,
+                publisher: book.publisher ?? null,
+                published_year: book.published_year ?? null,
+                description: book.description ?? null,
+                status: (book.status === "maintenance"
+                    ? "available"
+                    : book.status === "checked_out"
+                      ? "borrowed"
+                      : "available") as "available" | "borrowed",
+                created_at: book.created_at ?? "",
+                updated_at: book.updated_at ?? "",
+            }));
 
             console.log("Transformed books:", transformedBooks);
             setBooks(transformedBooks);
@@ -80,4 +63,4 @@ export function useBooks(search = "") {
 }
 
 // Export the TransformedBook type for use in components
-export type { TransformedBook as Book };
+export type { Book };

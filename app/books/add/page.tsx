@@ -98,8 +98,9 @@ export default function AddBookPage() {
                                 prev.published_year,
                         }));
                     }
-                } catch (err) {
+                } catch (error) {
                     // エラー時は何もしない
+                    console.error("ISBN fetch error:", error);
                 }
             }
         }

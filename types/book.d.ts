@@ -1,14 +1,15 @@
-// Book型定義
+// Local interface for the hook's transformed book data
 export interface Book {
-    id: number;
+    id: string;
     title: string;
     author: string;
     isbn: string | null;
     publisher: string | null;
     published_year: number | null;
     description: string | null;
-    status: "available" | "checked_out" | "reserved" | "maintenance";
+    status: "available" | "borrowed";
     created_at: string;
     updated_at: string;
-    deleted_at: string | null;
+    borrowedBy?: string;
+    dueDate?: string;
 }

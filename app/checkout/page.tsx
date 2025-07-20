@@ -12,13 +12,13 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useBooks } from "@/hooks/use-books";
+import { type Book, useBooks } from "@/hooks/use-books";
 import { apiClient } from "@/lib/api";
 
 export default function CheckoutPage() {
     const [bookSearch, setBookSearch] = useState("");
     const [userSearch, setUserSearch] = useState("");
-    const [selectedBook, setSelectedBook] = useState<any>(null);
+    const [selectedBook, setSelectedBook] = useState<Book | null>(null);
     const [selectedUser, setSelectedUser] = useState<any>(null);
     const { books, loading: booksLoading } = useBooks(bookSearch);
     const [users, setUsers] = useState<any[]>([]);
@@ -35,6 +35,7 @@ export default function CheckoutPage() {
                     page: 1,
                     limit: 50,
                 });
+                console.log("Users response:", res);
                 setUsers(
                     res.users.map((u) => ({
                         id: u.id,
@@ -112,7 +113,6 @@ export default function CheckoutPage() {
                                                 ? "bg-primary text-primary-foreground"
                                                 : "hover:bg-muted"
                                         }`}
-                                        // tabIndex={0}
                                         onClick={() => setSelectedBook(book)}
                                         onKeyDown={(e) => {
                                             if (
@@ -205,13 +205,13 @@ export default function CheckoutPage() {
                     <CardHeader>
                         <CardTitle>貸出確認</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-4 min-h-60">
                         <div className="grid gap-4 md:grid-cols-2">
                             <div>
                                 <Label className="text-sm font-medium">
                                     選択された本
                                 </Label>
-                                <div className="p-3 bg-muted rounded">
+                                <div className="p-3 bg-muted rounded h-20 flex flex-col justify-center">
                                     <div className="font-medium">
                                         {selectedBook.title}
                                     </div>
@@ -224,7 +224,7 @@ export default function CheckoutPage() {
                                 <Label className="text-sm font-medium">
                                     貸出先
                                 </Label>
-                                <div className="p-3 bg-muted rounded">
+                                <div className="p-3 bg-muted rounded h-20 flex flex-col justify-center">
                                     <div className="font-medium">
                                         {selectedUser.name}
                                     </div>
