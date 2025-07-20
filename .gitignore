@@ -15,17 +15,6 @@ api/build/
 api/.env
 api/.env.local
 
-# Go
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-*.test
-*.out
-go.work
-api/main
-
 # Database
 *.db
 *.sqlite
@@ -44,12 +33,6 @@ pids/
 # Coverage directory used by tools like istanbul
 coverage/
 *.lcov
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
 
 # OS
 .DS_Store
@@ -72,6 +55,4 @@ api/tmp/
 .next/
 out/
 
-# Go specific
-api/vendor/
-api/bin/
+*.tsbuildinfo
