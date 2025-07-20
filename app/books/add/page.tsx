@@ -55,8 +55,14 @@ export default function AddBookPage() {
             setSuccess(true);
             // 本一覧ページへリダイレクト
             router.push("/books");
-        } catch (err: any) {
-            setError(err?.message || "本の追加に失敗しました");
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                setError(err.message);
+            } else if (typeof err === "string") {
+                setError(err);
+            } else {
+                setError("本の追加に失敗しました");
+            }
         } finally {
             setLoading(false);
         }
