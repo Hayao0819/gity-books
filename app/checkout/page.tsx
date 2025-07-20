@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,43 +12,50 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useBooks } from "@/hooks/use-books";
+import { apiClient } from "@/lib/api";
 
 export default function CheckoutPage() {
     const [bookSearch, setBookSearch] = useState("");
     const [userSearch, setUserSearch] = useState("");
     const [selectedBook, setSelectedBook] = useState<any>(null);
     const [selectedUser, setSelectedUser] = useState<any>(null);
+    const { books, loading: booksLoading } = useBooks(bookSearch);
+    const [users, setUsers] = useState<any[]>([]);
+    const [usersLoading, setUsersLoading] = useState(false);
+    const [usersError, setUsersError] = useState<string | null>(null);
 
-    // モックデータ
-    const availableBooks = [
-        {
-            id: "1",
-            title: "JavaScript入門",
-            author: "田中太郎",
-            isbn: "978-4-123456-78-9",
-        },
-        {
-            id: "3",
-            title: "Go言語プログラミング",
-            author: "鈴木一郎",
-            isbn: "978-4-555666-77-8",
-        },
-    ];
-
-    const users = [
-        {
-            id: "1",
-            name: "山田太郎",
-            email: "yamada@example.com",
-            studentId: "S001",
-        },
-        {
-            id: "2",
-            name: "佐藤花子",
-            email: "sato@example.com",
-            studentId: "S002",
-        },
-    ];
+    useEffect(() => {
+        const fetchUsers = async () => {
+            setUsersLoading(true);
+            setUsersError(null);
+            try {
+                const res = await apiClient.getUsers({
+                    search: userSearch,
+                    page: 1,
+                    limit: 50,
+                });
+                setUsers(
+                    res.users.map((u) => ({
+                        id: u.id,
+                        name: u.name,
+                        email: u.email,
+                        studentId: u.student_id ?? "",
+                    })),
+                );
+            } catch (err) {
+                setUsersError(
+                    err instanceof Error
+                        ? err.message
+                        : "利用者の取得に失敗しました",
+                );
+                setUsers([]);
+            } finally {
+                setUsersLoading(false);
+            }
+        };
+        fetchUsers();
+    }, [userSearch]);
 
     const handleCheckout = () => {
         if (selectedBook && selectedUser) {
@@ -64,18 +71,6 @@ export default function CheckoutPage() {
             setUserSearch("");
         }
     };
-
-    const filteredBooks = availableBooks.filter(
-        (book) =>
-            book.title.toLowerCase().includes(bookSearch.toLowerCase()) ||
-            book.isbn.includes(bookSearch),
-    );
-
-    const filteredUsers = users.filter(
-        (user) =>
-            user.name.toLowerCase().includes(userSearch.toLowerCase()) ||
-            user.studentId.toLowerCase().includes(userSearch.toLowerCase()),
-    );
 
     return (
         <div className="max-w-4xl mx-auto space-y-6">
@@ -104,33 +99,42 @@ export default function CheckoutPage() {
                         </div>
 
                         <div className="space-y-2 max-h-60 overflow-y-auto">
-                            {filteredBooks.map((book) => (
-                                <div
-                                    key={book.id}
-                                    className={`p-3 border rounded cursor-pointer transition-colors ${
-                                        selectedBook?.id === book.id
-                                            ? "bg-primary text-primary-foreground"
-                                            : "hover:bg-muted"
-                                    }`}
-                                    // tabIndex={0}
-                                    onClick={() => setSelectedBook(book)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter" || e.key === " ") {
-                                            setSelectedBook(book);
-                                        }
-                                    }}
-                                >
-                                    <div className="font-medium">
-                                        {book.title}
+                            {booksLoading ? (
+                                <div>本を取得中...</div>
+                            ) : books.length === 0 ? (
+                                <div>該当する本がありません</div>
+                            ) : (
+                                books.map((book) => (
+                                    <div
+                                        key={book.id}
+                                        className={`p-3 border rounded cursor-pointer transition-colors ${
+                                            selectedBook?.id === book.id
+                                                ? "bg-primary text-primary-foreground"
+                                                : "hover:bg-muted"
+                                        }`}
+                                        // tabIndex={0}
+                                        onClick={() => setSelectedBook(book)}
+                                        onKeyDown={(e) => {
+                                            if (
+                                                e.key === "Enter" ||
+                                                e.key === " "
+                                            ) {
+                                                setSelectedBook(book);
+                                            }
+                                        }}
+                                    >
+                                        <div className="font-medium">
+                                            {book.title}
+                                        </div>
+                                        <div className="text-sm opacity-70">
+                                            {book.author}
+                                        </div>
+                                        <div className="text-xs opacity-50">
+                                            {book.isbn}
+                                        </div>
                                     </div>
-                                    <div className="text-sm opacity-70">
-                                        {book.author}
-                                    </div>
-                                    <div className="text-xs opacity-50">
-                                        {book.isbn}
-                                    </div>
-                                </div>
-                            ))}
+                                ))
+                            )}
                         </div>
                     </CardContent>
                 </Card>
@@ -154,33 +158,43 @@ export default function CheckoutPage() {
                         </div>
 
                         <div className="space-y-2 max-h-60 overflow-y-auto">
-                            {filteredUsers.map((user) => (
-                                <div
-                                    key={user.id}
-                                    className={`p-3 border rounded cursor-pointer transition-colors ${
-                                        selectedUser?.id === user.id
-                                            ? "bg-primary text-primary-foreground"
-                                            : "hover:bg-muted"
-                                    }`}
-                                    // tabIndex={0}
-                                    onClick={() => setSelectedUser(user)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter" || e.key === " ") {
-                                            setSelectedUser(user);
-                                        }
-                                    }}
-                                >
-                                    <div className="font-medium">
-                                        {user.name}
+                            {usersLoading ? (
+                                <div>利用者を取得中...</div>
+                            ) : usersError ? (
+                                <div className="text-red-500">{usersError}</div>
+                            ) : users.length === 0 ? (
+                                <div>該当する利用者がいません</div>
+                            ) : (
+                                users.map((user) => (
+                                    <div
+                                        key={user.id}
+                                        className={`p-3 border rounded cursor-pointer transition-colors ${
+                                            selectedUser?.id === user.id
+                                                ? "bg-primary text-primary-foreground"
+                                                : "hover:bg-muted"
+                                        }`}
+                                        onClick={() => setSelectedUser(user)}
+                                        onKeyDown={(e) => {
+                                            if (
+                                                e.key === "Enter" ||
+                                                e.key === " "
+                                            ) {
+                                                setSelectedUser(user);
+                                            }
+                                        }}
+                                    >
+                                        <div className="font-medium">
+                                            {user.name}
+                                        </div>
+                                        <div className="text-sm opacity-70">
+                                            {user.email}
+                                        </div>
+                                        <div className="text-xs opacity-50">
+                                            学籍番号: {user.studentId}
+                                        </div>
                                     </div>
-                                    <div className="text-sm opacity-70">
-                                        {user.email}
-                                    </div>
-                                    <div className="text-xs opacity-50">
-                                        学籍番号: {user.studentId}
-                                    </div>
-                                </div>
-                            ))}
+                                ))
+                            )}
                         </div>
                     </CardContent>
                 </Card>

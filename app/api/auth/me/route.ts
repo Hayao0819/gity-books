@@ -6,6 +6,7 @@ export async function GET(request: NextRequest) {
         const user = await requireAuth(request);
 
         // Return user information from Keycloak token and application database
+        console.log("Authenticated user:", user);
         return NextResponse.json({
             user: {
                 id: user.app_user_id,

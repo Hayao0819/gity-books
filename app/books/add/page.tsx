@@ -1,8 +1,8 @@
 "use client";
 
 import type React from "react";
-
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import apiClient from "@/lib/api";
 
 export default function AddBookPage() {
     const [formData, setFormData] = useState({
@@ -26,20 +27,76 @@ export default function AddBookPage() {
         description: "",
     });
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState(false);
+    const router = useRouter();
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // 実際はGoバックエンドのAPIを呼び出し
-        console.log("Add book:", formData);
-        // 成功時は本一覧ページにリダイレクト
+        setLoading(true);
+        setError(null);
+        setSuccess(false);
+        try {
+            // published_yearは数値型に変換
+            const payload = {
+                title: formData.title,
+                author: formData.author,
+                isbn: formData.isbn || undefined,
+                publisher: formData.publisher || undefined,
+                published_year: formData.published_year
+                    ? Number(formData.published_year)
+                    : undefined,
+                description: formData.description || undefined,
+            };
+            // APIリクエスト
+            const res = await apiClient.createBook(payload);
+            console.log("Book created:", res);
+            setSuccess(true);
+            // 本一覧ページへリダイレクト
+            router.push("/books");
+        } catch (err: any) {
+            setError(err?.message || "本の追加に失敗しました");
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleChange = (
+    const handleChange = async (
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
     ) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value,
-        });
+        const { name, value } = e.target;
+        setFormData((prev) => ({
+            ...prev,
+            [name]: value,
+        }));
+
+        // ISBN自動取得
+        if (name === "isbn") {
+            const isbn = value.replace(/-/g, "");
+            if (isbn.length === 10 || isbn.length === 13) {
+                try {
+                    const res = await fetch(
+                        `https://api.openbd.jp/v1/get?isbn=${isbn}`,
+                    );
+                    const data = await res.json();
+                    if (data?.[0]?.summary) {
+                        setFormData((prev) => ({
+                            ...prev,
+                            title: data[0].summary.title || prev.title,
+                            author: data[0].summary.author || prev.author,
+                            publisher:
+                                data[0].summary.publisher || prev.publisher,
+                            published_year:
+                                data[0].summary.pubdate?.slice(0, 4) ||
+                                prev.published_year,
+                        }));
+                    }
+                } catch (err) {
+                    // エラー時は何もしない
+                }
+            }
+        }
     };
 
     return (
@@ -122,14 +179,27 @@ export default function AddBookPage() {
                             />
                         </div>
 
+                        {error && (
+                            <div className="text-red-600 text-sm">{error}</div>
+                        )}
+                        {success && (
+                            <div className="text-green-600 text-sm">
+                                本を追加しました。リダイレクト中...
+                            </div>
+                        )}
                         <div className="flex gap-2">
-                            <Button type="submit" className="flex-1">
-                                本を追加
+                            <Button
+                                type="submit"
+                                className="flex-1"
+                                disabled={loading}
+                            >
+                                {loading ? "追加中..." : "本を追加"}
                             </Button>
                             <Button
                                 type="button"
                                 variant="outline"
                                 className="flex-1"
+                                onClick={() => router.push("/books")}
                             >
                                 キャンセル
                             </Button>

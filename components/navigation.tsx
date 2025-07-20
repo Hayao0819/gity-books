@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
+import { useSession } from "next-auth/react";
+import { useEffect } from "react";
 
 export function Navigation() {
     const pathname = usePathname();
@@ -39,6 +41,12 @@ export function Navigation() {
     const handleLogout = async () => {
         await logout();
     };
+    const { data: session, status } = useSession();
+
+    useEffect(() => {
+        console.log("session:", session);
+        console.log("status:", status);
+    }, [session, status]);
 
     if (loading) {
         return (
@@ -109,19 +117,25 @@ export function Navigation() {
                                     variant="ghost"
                                     size="sm"
                                     className="flex items-center space-x-2"
+                                    asChild
                                 >
-                                    <User className="h-4 w-4" />
-                                    <span className="hidden sm:inline">
-                                        {user.name}
-                                    </span>
-                                    {/* {user.role === "admin" && (
-                                        <Badge
-                                            variant="secondary"
-                                            className="ml-1"
-                                        >
-                                            管理者
-                                        </Badge>
-                                    )} */}
+                                    <Link
+                                        href="/profile"
+                                        className="flex items-center space-x-2"
+                                    >
+                                        <User className="h-4 w-4" />
+                                        <span className="hidden sm:inline">
+                                            {user.name}
+                                        </span>
+                                        {/* {user.role === "admin" && (
+                                            <Badge
+                                                variant="secondary"
+                                                className="ml-1"
+                                            >
+                                                管理者
+                                            </Badge>
+                                        )} */}
+                                    </Link>
                                 </Button>
                                 <Button
                                     variant="ghost"
