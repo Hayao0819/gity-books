@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
+import type { CheckoutWithBook as FormattedCheckout } from "@/types/checkout-with-book";
 
 // Supabaseから返されるチェックアウトデータの型を定義
 interface SupabaseCheckout {
@@ -26,31 +27,6 @@ interface SupabaseCheckout {
         email: string;
         student_id: string | null;
     } | null;
-}
-
-// フロントエンドに返すフォーマット済みチェックアウトの型
-interface FormattedCheckout {
-    id: number;
-    book_id: number;
-    user_id: number;
-    checkout_date: string;
-    due_date: string;
-    return_date?: string;
-    status: string;
-    created_at: string;
-    updated_at: string;
-    book?: {
-        id: number;
-        title: string;
-        author: string;
-        isbn: string;
-    };
-    user?: {
-        id: number;
-        name: string;
-        email: string;
-        student_id?: string;
-    };
 }
 
 export async function GET(request: NextRequest) {

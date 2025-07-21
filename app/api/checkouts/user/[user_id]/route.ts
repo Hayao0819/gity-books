@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
+import type { CheckoutWithBook } from "@/types/checkout-with-book";
 
 export async function GET(
     request: NextRequest,
@@ -65,19 +66,23 @@ export async function GET(
             );
         }
 
-        const formattedCheckouts = (checkouts || []).map(
-            // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-            (checkout: any) => ({
+        const formattedCheckouts: CheckoutWithBook[] = (checkouts || []).map(
+            (checkout): CheckoutWithBook => ({
                 id: checkout.id,
                 book_id: checkout.book_id,
                 user_id: checkout.user_id,
-                checkout_date: checkout.checkout_date,
+                checkout_date: checkout.checkout_date ?? "",
                 due_date: checkout.due_date,
-                return_date: checkout.return_date,
+                return_date: checkout.return_date ?? "",
                 status: checkout.status,
-                created_at: checkout.created_at,
-                updated_at: checkout.updated_at,
-                book: checkout.books,
+                book: checkout.books
+                    ? {
+                          id: checkout.books.id,
+                          title: checkout.books.title,
+                          author: checkout.books.author,
+                          isbn: checkout.books.isbn ?? "",
+                      }
+                    : undefined,
             }),
         );
 

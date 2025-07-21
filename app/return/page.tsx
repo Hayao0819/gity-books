@@ -7,12 +7,25 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import type { CheckoutWithBook } from "@/types/checkout-with-book";
+
+// 返却画面用の貸出中本型
+type BorrowedBook = {
+    id: string; // チェックアウトID
+    title: string;
+    author: string;
+    isbn: string;
+    borrowedBy: string;
+    borrowedDate: string;
+    dueDate: string;
+    isOverdue: boolean;
+};
 
 export default function ReturnPage() {
     const [searchTerm, setSearchTerm] = useState("");
 
     // 実データ取得用の状態
-    const [borrowedBooks, setBorrowedBooks] = useState<any[]>([]);
+    const [borrowedBooks, setBorrowedBooks] = useState<BorrowedBook[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -32,18 +45,20 @@ export default function ReturnPage() {
             });
             // APIの返却値に合わせて整形
             setBorrowedBooks(
-                (res.checkouts || []).map((c: any) => ({
-                    id: c.id,
-                    title: c.book?.title || "",
-                    author: c.book?.author || "",
-                    isbn: c.book?.isbn || "",
-                    borrowedBy: me.user.name,
-                    borrowedDate: c.checkout_date
-                        ? c.checkout_date.slice(0, 10)
-                        : "",
-                    dueDate: c.due_date ? c.due_date.slice(0, 10) : "",
-                    isOverdue: c.status === "overdue",
-                })),
+                (res.checkouts || []).map(
+                    (c: CheckoutWithBook): BorrowedBook => ({
+                        id: String(c.id),
+                        title: c.book?.title || "",
+                        author: c.book?.author || "",
+                        isbn: c.book?.isbn || "",
+                        borrowedBy: me.user.name,
+                        borrowedDate: c.checkout_date
+                            ? c.checkout_date.slice(0, 10)
+                            : "",
+                        dueDate: c.due_date ? c.due_date.slice(0, 10) : "",
+                        isOverdue: c.status === "overdue",
+                    }),
+                ),
             );
         } catch (err) {
             let errorMsg = "";

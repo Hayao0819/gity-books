@@ -13,15 +13,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { type Book, useBooks } from "@/hooks/use-books";
+import type { User } from "@/types/user";
 import { apiClient } from "@/lib/api";
 
 export default function CheckoutPage() {
     const [bookSearch, setBookSearch] = useState("");
     const [userSearch, setUserSearch] = useState("");
     const [selectedBook, setSelectedBook] = useState<Book | null>(null);
-    const [selectedUser, setSelectedUser] = useState<any>(null);
+    const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const { books, loading: booksLoading } = useBooks(bookSearch);
-    const [users, setUsers] = useState<any[]>([]);
+    const [users, setUsers] = useState<User[]>([]);
     const [usersLoading, setUsersLoading] = useState(false);
     const [usersError, setUsersError] = useState<string | null>(null);
 
@@ -41,7 +42,11 @@ export default function CheckoutPage() {
                         id: u.id,
                         name: u.name,
                         email: u.email,
-                        studentId: u.student_id ?? "",
+                        role: u.role === "admin" ? "admin" : "user",
+                        student_id: u.student_id ?? null,
+                        created_at: u.created_at,
+                        updated_at: u.updated_at,
+                        deleted_at: null,
                     })),
                 );
             } catch (err) {
@@ -211,9 +216,9 @@ export default function CheckoutPage() {
                                         <div className="text-sm opacity-70">
                                             {user.email}
                                         </div>
-                                        <div className="text-xs opacity-50">
+                                        {/* <div className="text-xs opacity-50">
                                             学籍番号: {user.studentId}
-                                        </div>
+                                        </div> */}
                                     </div>
                                 ))
                             )}
@@ -250,9 +255,9 @@ export default function CheckoutPage() {
                                     <div className="font-medium">
                                         {selectedUser.name}
                                     </div>
-                                    <div className="text-sm text-muted-foreground">
+                                    {/* <div className="text-sm text-muted-foreground">
                                         {selectedUser.studentId}
-                                    </div>
+                                    </div> */}
                                 </div>
                             </div>
                         </div>

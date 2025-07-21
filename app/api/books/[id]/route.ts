@@ -62,7 +62,8 @@ export async function GET(
         const book = books[0];
 
         // Format checkouts
-        const checkouts = (book.checkouts as (Checkout & { users?: any })[])
+        type User = { id: number; name: string; email: string };
+        const checkouts = (book.checkouts as (Checkout & { users?: User })[])
             .filter((checkout) => checkout.status === "borrowed")
             .map((checkout) => ({
                 id: checkout.id,
