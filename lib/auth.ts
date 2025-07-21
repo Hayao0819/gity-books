@@ -1,6 +1,6 @@
-import { getToken } from "next-auth/jwt";
 import type { NextRequest } from "next/server";
 import { supabase, supabaseAdmin } from "./supabase";
+import { auth } from "@/auth";
 
 export interface AuthUser {
     email: string;
@@ -11,7 +11,7 @@ export interface AuthUser {
     preferred_username?: string;
 }
 
-export async function requireAuth(request: NextRequest): Promise<AuthUser> {
+export async function requireAuth(_: NextRequest): Promise<AuthUser> {
     if (!process.env.AUTH_SECRET) {
         console.error("AUTH_SECRET is not set in environment variables");
         throw new Error(
@@ -19,16 +19,11 @@ export async function requireAuth(request: NextRequest): Promise<AuthUser> {
         );
     }
 
-    const token = await getToken({
-        req: request,
-        secret: process.env.AUTH_SECRET,
-    });
-    if (!token) {
-        console.error("No token found in request. Headers:", request.headers);
-        throw new Error("Authentication failed: No token found in request");
-    }
-    if (!token.email) {
-        console.error("Token found but no email. Token:", token);
+    const session = await auth();
+    const user = session?.user;
+    const token = session?.token;
+    if (!user?.email) {
+        // console.error("Token found but no email. Token:", token);
         throw new Error("Authentication failed: Token has no email");
     }
 
@@ -36,7 +31,7 @@ export async function requireAuth(request: NextRequest): Promise<AuthUser> {
     const { data: users, error } = await supabase
         .from("users")
         .select("id, email, role, name")
-        .eq("email", String(token.email))
+        .eq("email", String(user.email))
         .is("deleted_at", null)
         .limit(1);
 
@@ -52,8 +47,8 @@ export async function requireAuth(request: NextRequest): Promise<AuthUser> {
         const { data: newUsers, error: createError } = await supabaseAdmin
             .from("users")
             .insert({
-                email: String(token.email),
-                name: token.name ?? String(token.email),
+                email: String(user.email),
+                name: user.name ?? String(user.email),
                 role: "user",
                 student_id: null,
                 created_at: new Date().toISOString(),
@@ -71,15 +66,11 @@ export async function requireAuth(request: NextRequest): Promise<AuthUser> {
     }
 
     return {
-        email: String(token.email),
-        name: token.name ?? undefined,
+        email: String(user.email),
+        name: user.name ?? undefined,
         role: appUser.role,
         app_user_id: appUser.id,
-        sub: token.sub ?? undefined,
-        preferred_username:
-            typeof token.preferred_username === "string"
-                ? token.preferred_username
-                : undefined,
+        sub: token?.sub,
     };
 }
 
