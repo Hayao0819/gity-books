@@ -86,11 +86,13 @@ export async function GET(request: NextRequest) {
                 { status: 500 },
             );
         }
+
+        // checkout_dateが正しいカラム名
         const { count: monthlyCheckouts, error: monthlyCheckoutsError } =
             await supabaseAdmin
                 .from("checkouts")
                 .select("*", { count: "exact", head: true })
-                .gte("borrowed_date", startOfMonth.toISOString())
+                .gte("checkout_date", startOfMonth.toISOString())
                 .is("deleted_at", null);
 
         if (monthlyCheckoutsError) {

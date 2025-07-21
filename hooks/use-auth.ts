@@ -7,11 +7,10 @@ export function useAuth() {
     const loading = status === "loading";
     const authenticated = status === "authenticated";
 
-
     return {
         user,
         loading,
-        login: () => signIn("keycloak"),
+        login: (redirectTo?: string) => signIn("keycloak", redirectTo ? { redirectTo }: {}),
         logout: () => signOut(),
         authenticated,
         session,

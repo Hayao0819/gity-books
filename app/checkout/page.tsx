@@ -58,18 +58,40 @@ export default function CheckoutPage() {
         fetchUsers();
     }, [userSearch]);
 
-    const handleCheckout = () => {
+    const handleCheckout = async () => {
         if (selectedBook && selectedUser) {
-            // 実際はGoバックエンドのAPIを呼び出し
-            console.log("Checkout:", {
-                book: selectedBook,
-                user: selectedUser,
-            });
-            // 成功時はリセット
-            setSelectedBook(null);
-            setSelectedUser(null);
-            setBookSearch("");
-            setUserSearch("");
+            try {
+                // API呼び出し
+                await apiClient.createCheckout({
+                    book_id: Number(selectedBook.id),
+                    user_id: Number(selectedUser.id),
+                });
+                // 成功時はリセット
+                setSelectedBook(null);
+                setSelectedUser(null);
+                setBookSearch("");
+                setUserSearch("");
+                alert("貸出が完了しました");
+            } catch (err: unknown) {
+                if (typeof err === "object" && err !== null) {
+                    let errorMsg = "";
+                    if (
+                        "error" in err &&
+                        typeof (err as { error?: unknown }).error === "string"
+                    ) {
+                        errorMsg = (err as { error: string }).error;
+                    } else if (
+                        "message" in err &&
+                        typeof (err as { message?: unknown }).message ===
+                            "string"
+                    ) {
+                        errorMsg = (err as { message: string }).message;
+                    }
+                    alert(errorMsg || "貸出処理に失敗しました");
+                } else {
+                    alert("貸出処理に失敗しました");
+                }
+            }
         }
     };
 

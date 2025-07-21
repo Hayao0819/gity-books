@@ -13,8 +13,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
-import { useSession } from "next-auth/react";
-import { useEffect } from "react";
 
 export function Navigation() {
     const pathname = usePathname();
@@ -41,12 +39,12 @@ export function Navigation() {
     const handleLogout = async () => {
         await logout();
     };
-    const { data: session, status } = useSession();
+    // const { data: session, status } = useSession();
 
-    useEffect(() => {
-        console.log("session:", session);
-        console.log("status:", status);
-    }, [session, status]);
+    // useEffect(() => {
+    //     console.log("session:", session);
+    //     console.log("status:", status);
+    // }, [session, status]);
 
     if (loading) {
         return (
@@ -127,14 +125,6 @@ export function Navigation() {
                                         <span className="hidden sm:inline">
                                             {user.name}
                                         </span>
-                                        {/* {user.role === "admin" && (
-                                            <Badge
-                                                variant="secondary"
-                                                className="ml-1"
-                                            >
-                                                管理者
-                                            </Badge>
-                                        )} */}
                                     </Link>
                                 </Button>
                                 <Button
@@ -149,7 +139,24 @@ export function Navigation() {
                                     </span>
                                 </Button>
                             </>
-                        ) : null}
+                        ) : (
+                            <Button
+                                variant="default"
+                                size="sm"
+                                asChild
+                                className="flex items-center space-x-2"
+                            >
+                                <Link
+                                    href="/login"
+                                    className="flex items-center space-x-2"
+                                >
+                                    <User className="h-4 w-4" />
+                                    <span className="hidden sm:inline">
+                                        ログイン
+                                    </span>
+                                </Link>
+                            </Button>
+                        )}
                     </div>
                 </div>
             </div>
