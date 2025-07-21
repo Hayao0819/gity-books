@@ -34,17 +34,15 @@ export async function GET(request: NextRequest) {
             );
         }
         type DailyStat = { date: string; count: number };
-        const { data: checkoutStatsRaw, error: checkoutError } =
-            await (supabaseAdmin.rpc as unknown as (
+        const { data: checkoutStatsRaw, error: checkoutError } = await (
+            supabaseAdmin.rpc as unknown as (
                 fn: string,
-                params: Record<string, unknown>
-            ) => Promise<{ data: unknown; error: unknown }>)(
-                "get_daily_checkout_stats",
-                {
-                    start_date: startDate.toISOString(),
-                    end_date: endDate.toISOString(),
-                }
-            );
+                params: Record<string, unknown>,
+            ) => Promise<{ data: unknown; error: unknown }>
+        )("get_daily_checkout_stats", {
+            start_date: startDate.toISOString(),
+            end_date: endDate.toISOString(),
+        });
         const checkoutStats = checkoutStatsRaw as unknown as DailyStat[];
 
         if (checkoutError) {
@@ -63,17 +61,15 @@ export async function GET(request: NextRequest) {
                 { status: 500 },
             );
         }
-        const { data: returnStatsRaw, error: returnError } =
-            await (supabaseAdmin.rpc as unknown as (
+        const { data: returnStatsRaw, error: returnError } = await (
+            supabaseAdmin.rpc as unknown as (
                 fn: string,
-                params: Record<string, unknown>
-            ) => Promise<{ data: unknown; error: unknown }>)(
-                "get_daily_return_stats",
-                {
-                    start_date: startDate.toISOString(),
-                    end_date: endDate.toISOString(),
-                }
-            );
+                params: Record<string, unknown>,
+            ) => Promise<{ data: unknown; error: unknown }>
+        )("get_daily_return_stats", {
+            start_date: startDate.toISOString(),
+            end_date: endDate.toISOString(),
+        });
         const returnStats = returnStatsRaw as unknown as DailyStat[];
 
         if (returnError) {

@@ -12,12 +12,24 @@ export interface AuthUser {
 }
 
 export async function requireAuth(request: NextRequest): Promise<AuthUser> {
+    if (!process.env.AUTH_SECRET) {
+        console.error("AUTH_SECRET is not set in environment variables");
+        throw new Error(
+            "Authentication failed: Server misconfiguration (no AUTH_SECRET)",
+        );
+    }
+
     const token = await getToken({
         req: request,
         secret: process.env.AUTH_SECRET,
     });
-    if (!token || !token.email) {
-        throw new Error("Authentication failed: No token provided");
+    if (!token) {
+        console.error("No token found in request. Headers:", request.headers);
+        throw new Error("Authentication failed: No token found in request");
+    }
+    if (!token.email) {
+        console.error("Token found but no email. Token:", token);
+        throw new Error("Authentication failed: Token has no email");
     }
 
     // DBからユーザー情報取得
