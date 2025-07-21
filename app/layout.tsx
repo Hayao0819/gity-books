@@ -21,16 +21,18 @@ export default function RootLayout({
 }) {
     return (
         <html lang="ja">
-            <body className={`${inter.className} bg-white`}>
-                <ErrorBoundary>
-                    <SessionProvider>
+            <ErrorBoundary>
+                <SessionProvider>
+                    <body
+                        className={`${inter.className} bg-white flex flex-col min-h-screen`}
+                    >
                         <Navigation />
-                        <main className="container mx-auto px-4 py-8 max-w-7xl">
+                        <main className="container mx-auto px-4 py-8 max-w-7xl grow">
                             {children}
                         </main>
-                    </SessionProvider>
-                </ErrorBoundary>
-            </body>
+                    </body>
+                </SessionProvider>
+            </ErrorBoundary>
         </html>
     );
 }

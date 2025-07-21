@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { User } from "@/types/user";
 
 export default function ProfilePage() {
-    const [user, setUser] = useState<any>(null);
+    const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     // const router = useRouter();
 
@@ -17,7 +18,7 @@ export default function ProfilePage() {
                     throw new Error("ユーザー情報の取得に失敗しました");
                 const data = await res.json();
                 setUser(data.user ?? null);
-            } catch (e) {
+            } catch (_) {
                 setUser(null);
             } finally {
                 setLoading(false);
@@ -38,7 +39,7 @@ export default function ProfilePage() {
 
             <div className="mb-2">
                 <span className="font-semibold">ユーザー名:</span>{" "}
-                {user.name || user.preferred_username || user.email}
+                {user.name || user.email}
             </div>
             <div className="mb-2">
                 <span className="font-semibold">メールアドレス:</span>{" "}
