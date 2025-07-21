@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 
-import type { Checkout } from "@/types/checkout";
+import type { CheckoutRecord, Checkout } from "@/types/checkout";
 import { requireAuth } from "@/lib/auth";
 
 export async function GET(
@@ -63,10 +63,13 @@ export async function GET(
 
         // Format checkouts
         type User = { id: number; name: string; email: string };
-        const checkouts = (book.checkouts as (Checkout & { users?: User })[])
+        const checkouts = (
+            book.checkouts as (CheckoutRecord & { users?: User })[]
+        )
             .filter((checkout) => checkout.status === "borrowed")
-            .map((checkout) => ({
+            .map((checkout): Checkout & { user?: User } => ({
                 id: checkout.id,
+                book_id: checkout.book_id,
                 user_id: checkout.user_id,
                 checkout_date: checkout.checkout_date,
                 due_date: checkout.due_date,

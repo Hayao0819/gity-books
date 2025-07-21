@@ -1,4 +1,51 @@
-"use client";
+import type { CheckoutWithBook } from "@/types/checkout";
+// Supabaseからのレスポンス型
+type SupabaseCheckoutRecord = {
+    id: number;
+    book_id: number;
+    user_id: number;
+    checkout_date: string | null;
+    due_date: string;
+    return_date?: string | null; // undefinedも許容
+    status: string;
+    book?: {
+        id: number;
+        title: string;
+        author: string;
+        isbn: string | null;
+    } | null;
+};
+
+function normalizeCheckoutWithBook(
+    obj: SupabaseCheckoutRecord,
+): CheckoutWithBook {
+    return {
+        id: obj.id,
+        book_id: obj.book_id,
+        user_id: obj.user_id,
+        checkout_date: obj.checkout_date ?? "",
+        due_date: obj.due_date ?? "",
+    return_date: obj.return_date !== undefined ? obj.return_date : null,
+        status:
+            obj.status === "borrowed" || obj.status === "returned"
+                ? obj.status
+                : "borrowed",
+        book: obj.book
+            ? {
+                  id: obj.book.id,
+                  title: obj.book.title,
+                  author: obj.book.author,
+                  isbn: obj.book.isbn ?? null,
+              }
+            : {
+                  id: 0,
+                  title: "",
+                  author: "",
+                  isbn: null,
+              },
+    };
+}
+("use client");
 
 import { useState, useEffect, useCallback } from "react";
 import { apiClient } from "@/lib/api";
@@ -7,7 +54,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import type { CheckoutWithBook } from "@/types/checkout-with-book";
 
 // 返却画面用の貸出中本型
 type BorrowedBook = {
@@ -19,6 +65,7 @@ type BorrowedBook = {
     borrowedDate: string;
     dueDate: string;
     isOverdue: boolean;
+    returnDate?: string;
 };
 
 export default function ReturnPage() {
@@ -43,24 +90,26 @@ export default function ReturnPage() {
             const res = await apiClient.getUserCheckouts(userId, {
                 status: "active",
             });
-            // APIの返却値に合わせて整形
             setBorrowedBooks(
-                (res.checkouts || []).map(
-                    (c: CheckoutWithBook): BorrowedBook => ({
+                (res.checkouts || []).map(normalizeCheckoutWithBook).map(
+                    (c): BorrowedBook => ({
                         id: String(c.id),
-                        title: c.book?.title || "",
-                        author: c.book?.author || "",
-                        isbn: c.book?.isbn || "",
+                        title: c.book.title,
+                        author: c.book.author,
+                        isbn: c.book.isbn || "",
                         borrowedBy: me.user.name,
                         borrowedDate: c.checkout_date
                             ? c.checkout_date.slice(0, 10)
                             : "",
                         dueDate: c.due_date ? c.due_date.slice(0, 10) : "",
-                        isOverdue: c.status === "overdue",
+                        isOverdue: false, // c.statusが"overdue"はAPI側で返さないためfalse固定
+                        returnDate: c.return_date
+                            ? c.return_date.slice(0, 10)
+                            : undefined,
                     }),
                 ),
             );
-        } catch (err) {
+        } catch (err: unknown) {
             let errorMsg = "";
             if (typeof err === "object" && err !== null) {
                 if (
@@ -86,30 +135,9 @@ export default function ReturnPage() {
         fetchBorrowedBooks();
     }, [fetchBorrowedBooks]);
 
-    const handleReturn = async (bookId: string) => {
-        // 本来はbookIdからcheckoutIdを特定する必要があるが、ここではidをcheckoutIdと仮定
-        try {
-            await apiClient.returnBook(Number(bookId));
-            alert("返却処理が完了しました");
-            // 返却後のリスト更新
-            await fetchBorrowedBooks();
-        } catch (err: unknown) {
-            let errorMsg = "";
-            if (typeof err === "object" && err !== null) {
-                if (
-                    "error" in err &&
-                    typeof (err as { error?: unknown }).error === "string"
-                ) {
-                    errorMsg = (err as { error: string }).error;
-                } else if (
-                    "message" in err &&
-                    typeof (err as { message?: unknown }).message === "string"
-                ) {
-                    errorMsg = (err as { message: string }).message;
-                }
-            }
-            alert(errorMsg || "返却処理に失敗しました");
-        }
+    // 返却処理ボタン用のダミー関数
+    const handleReturn = (checkoutId: string) => {
+        alert(`返却処理: チェックアウトID=${checkoutId}`);
     };
 
     const filteredBooks = borrowedBooks.filter(

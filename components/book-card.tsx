@@ -10,15 +10,15 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import type { Book } from "@/types/book";
-import { Calendar, User, Book as LucideBook } from "lucide-react";
 
 interface BookCardProps {
     book: Book;
-    onCheckout?: (bookId: string) => void;
     onReturn?: (bookId: string) => void;
 }
 
-export function BookCard({ book, onCheckout, onReturn }: BookCardProps) {
+import { Calendar, User, Book as LucideBook } from "lucide-react";
+
+export function BookCard({ book, onReturn }: BookCardProps) {
     // bookがundefinedまたはnullの場合は何も表示しない
     if (!book) {
         return null;
@@ -69,11 +69,8 @@ export function BookCard({ book, onCheckout, onReturn }: BookCardProps) {
             </CardContent>
             <CardFooter className="mt-auto">
                 {book.status === "available" ? (
-                    <Button
-                        onClick={() => onCheckout?.(book.id)}
-                        className="w-full"
-                    >
-                        貸出
+                    <Button asChild className="w-full">
+                        <a href={`/checkout?book_id=${book.id}`}>貸出</a>
                     </Button>
                 ) : (
                     <Button

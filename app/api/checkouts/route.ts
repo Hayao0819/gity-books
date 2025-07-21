@@ -1,33 +1,29 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
-import type { CheckoutWithBook as FormattedCheckout } from "@/types/checkout-with-book";
-
-// Supabaseから返されるチェックアウトデータの型を定義
-interface SupabaseCheckout {
+import type { CheckoutWithBook } from "@/types/checkout";
+// Supabaseからのレスポンス型
+type SupabaseCheckoutRecord = {
     id: number;
     book_id: number;
     user_id: number;
-    checkout_date: string;
+    checkout_date: string | null;
     due_date: string;
     return_date: string | null;
     status: string;
-    created_at: string;
-    updated_at: string;
-    deleted_at: string | null;
-    books: {
+    books?: {
         id: number;
         title: string;
         author: string;
         isbn: string | null;
     } | null;
-    users: {
+    users?: {
         id: number;
         name: string;
         email: string;
         student_id: string | null;
     } | null;
-}
+};
 
 export async function GET(request: NextRequest) {
     try {
@@ -91,33 +87,32 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        const formattedCheckouts: FormattedCheckout[] = (checkouts || []).map(
-            (checkout: any) => ({
+        const formattedCheckouts: CheckoutWithBook[] = (checkouts || []).map(
+            (checkout: SupabaseCheckoutRecord) => ({
                 id: checkout.id,
                 book_id: checkout.book_id,
                 user_id: checkout.user_id,
                 checkout_date: checkout.checkout_date ?? "",
                 due_date: checkout.due_date ?? "",
-                return_date: checkout.return_date ?? undefined,
-                status: checkout.status,
-                created_at: checkout.created_at ?? "",
-                updated_at: checkout.updated_at ?? "",
+                return_date: checkout.return_date ?? null,
+                status:
+                    checkout.status === "borrowed" ||
+                    checkout.status === "returned"
+                        ? checkout.status
+                        : "borrowed",
                 book: checkout.books
                     ? {
                           id: checkout.books.id,
                           title: checkout.books.title,
                           author: checkout.books.author,
-                          isbn: checkout.books.isbn ?? "",
+                          isbn: checkout.books.isbn ?? null,
                       }
-                    : undefined,
-                user: checkout.users
-                    ? {
-                          id: checkout.users.id,
-                          name: checkout.users.name,
-                          email: checkout.users.email,
-                          student_id: checkout.users.student_id ?? undefined,
-                      }
-                    : undefined,
+                    : {
+                          id: 0,
+                          title: "",
+                          author: "",
+                          isbn: null,
+                      },
             }),
         );
 
@@ -195,6 +190,7 @@ export async function POST(request: NextRequest) {
             supabaseAdmin.rpc as unknown as (
                 fn: string,
                 params: Record<string, unknown>,
+                // biome-ignore lint/suspicious/noExplicitAny: <explanation>
             ) => Promise<{ data: any; error: any }>
         )("checkout_book", {
             p_book_id: book_id,
@@ -211,7 +207,7 @@ export async function POST(request: NextRequest) {
         }
 
         // 詳細取得
-        let checkoutDetails: SupabaseCheckout | null = null;
+        let checkoutDetails: SupabaseCheckoutRecord | null = null;
         let detailsError: unknown;
         if (rpcResult && rpcResult.length > 0) {
             const checkoutId = rpcResult[0].id;
@@ -224,7 +220,7 @@ export async function POST(request: NextRequest) {
       `)
                 .eq("id", checkoutId)
                 .single();
-            checkoutDetails = data as unknown as SupabaseCheckout | null;
+            checkoutDetails = data as SupabaseCheckoutRecord | null;
             detailsError = error as unknown;
         }
 
@@ -240,16 +236,30 @@ export async function POST(request: NextRequest) {
             {
                 checkout: checkoutDetails
                     ? {
-                          id: checkoutDetails?.id,
-                          book_id: checkoutDetails?.book_id,
-                          user_id: checkoutDetails?.user_id,
-                          checkout_date: checkoutDetails?.checkout_date,
-                          due_date: checkoutDetails?.due_date,
-                          status: checkoutDetails?.status,
-                          created_at: checkoutDetails?.created_at,
-                          updated_at: checkoutDetails?.updated_at,
-                          book: checkoutDetails?.books,
-                          user: checkoutDetails?.users,
+                          id: checkoutDetails.id,
+                          book_id: checkoutDetails.book_id,
+                          user_id: checkoutDetails.user_id,
+                          checkout_date: checkoutDetails.checkout_date ?? "",
+                          due_date: checkoutDetails.due_date ?? "",
+                          return_date: checkoutDetails.return_date ?? null,
+                          status:
+                              checkoutDetails.status === "borrowed" ||
+                              checkoutDetails.status === "returned"
+                                  ? checkoutDetails.status
+                                  : "borrowed",
+                          book: checkoutDetails.books
+                              ? {
+                                    id: checkoutDetails.books.id,
+                                    title: checkoutDetails.books.title,
+                                    author: checkoutDetails.books.author,
+                                    isbn: checkoutDetails.books.isbn ?? null,
+                                }
+                              : {
+                                    id: 0,
+                                    title: "",
+                                    author: "",
+                                    isbn: null,
+                                },
                       }
                     : null,
             },

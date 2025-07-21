@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "./useSearchParams";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,9 +13,12 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { type Book, useBooks } from "@/hooks/use-books";
-import type { User } from "@/types/user";
+
+import { useBooks } from "@/hooks/use-books";
+import type { Book } from "@/types/book";
+
 import { apiClient } from "@/lib/api";
+import type { User } from "@/types/user";
 
 export default function CheckoutPage() {
     const [bookSearch, setBookSearch] = useState("");
@@ -25,6 +29,17 @@ export default function CheckoutPage() {
     const [users, setUsers] = useState<User[]>([]);
     const [usersLoading, setUsersLoading] = useState(false);
     const [usersError, setUsersError] = useState<string | null>(null);
+    const searchParams = useSearchParams();
+    // book_idパラメータがあれば初期選択
+    useEffect(() => {
+        const bookIdParam = searchParams.get("book_id");
+        if (bookIdParam && books.length > 0) {
+            const found = books.find(
+                (b) => String(b.id) === String(bookIdParam),
+            );
+            if (found) setSelectedBook(found);
+        }
+    }, [searchParams, books]);
 
     useEffect(() => {
         const fetchUsers = async () => {

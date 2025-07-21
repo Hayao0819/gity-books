@@ -1,7 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
-import type { CheckoutWithBook } from "@/types/checkout-with-book";
+import type { CheckoutWithBook } from "@/types/checkout";
+// import type { CheckoutWithBookResponse } from "@/types/checkout-with-book";
 
 export async function GET(
     request: NextRequest,
@@ -72,17 +73,22 @@ export async function GET(
                 book_id: checkout.book_id,
                 user_id: checkout.user_id,
                 checkout_date: checkout.checkout_date ?? "",
-                due_date: checkout.due_date,
-                return_date: checkout.return_date ?? "",
-                status: checkout.status,
+                due_date: checkout.due_date ?? "",
+                return_date: checkout.return_date ?? null,
+                status: checkout.status as CheckoutWithBook["status"],
                 book: checkout.books
                     ? {
                           id: checkout.books.id,
                           title: checkout.books.title,
                           author: checkout.books.author,
-                          isbn: checkout.books.isbn ?? "",
+                          isbn: checkout.books.isbn ?? null,
                       }
-                    : undefined,
+                    : {
+                          id: 0,
+                          title: "",
+                          author: "",
+                          isbn: null,
+                      },
             }),
         );
 

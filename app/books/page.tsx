@@ -11,11 +11,6 @@ export default function BooksPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const { books, loading } = useBooks(searchTerm);
 
-    const handleCheckout = (bookId: string) => {
-        // 実際はGoバックエンドのAPIを呼び出し
-        console.log("Checkout book:", bookId);
-    };
-
     const handleReturn = (bookId: string) => {
         // 実際はGoバックエンドのAPIを呼び出し
         console.log("Return book:", bookId);
@@ -53,7 +48,7 @@ export default function BooksPage() {
                             <BookCard
                                 key={book.id}
                                 book={book}
-                                onCheckout={handleCheckout}
+                                // onCheckout 削除
                                 onReturn={handleReturn}
                             />
                         ))}
