@@ -7,7 +7,7 @@ CREATE TABLE books (
     publisher TEXT,
     published_year INTEGER,
     description TEXT,
-    status TEXT NOT NULL CHECK (status IN ('available', 'checked_out', 'reserved', 'maintenance')),
+    status TEXT NOT NULL CHECK (status IN ('available', 'borrowed')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     deleted_at TIMESTAMP WITH TIME ZONE

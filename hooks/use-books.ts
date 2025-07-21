@@ -33,11 +33,9 @@ export function useBooks(search = "") {
                 publisher: book.publisher ?? null,
                 published_year: book.published_year ?? null,
                 description: book.description ?? null,
-                status: (book.status === "maintenance"
-                    ? "available"
-                    : book.status === "checked_out"
-                      ? "borrowed"
-                      : "available") as "available" | "borrowed",
+                status: (book.status === "borrowed"
+                    ? "borrowed"
+                    : "available") as "available" | "borrowed",
                 created_at: book.created_at ?? "",
                 updated_at: book.updated_at ?? "",
             }));

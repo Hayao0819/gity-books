@@ -88,10 +88,7 @@ export async function GET(request: NextRequest) {
             .is("deleted_at", null);
 
         if (status) {
-            query = query.eq(
-                "status",
-                status as "active" | "returned" | "overdue",
-            );
+            query = query.eq("status", status as "borrowed" | "returned");
         }
 
         if (userId) {
@@ -257,12 +254,12 @@ export async function POST(request: NextRequest) {
                 { status: 500 },
             );
         }
-        const { data: activeCheckouts, error: checkoutError } =
+        const { data: borrowedCheckouts, error: checkoutError } =
             await supabaseAdmin
                 .from("checkouts")
                 .select("id", { count: "exact" })
                 .eq("user_id", user_id)
-                .eq("status", "active");
+                .eq("status", "borrowed");
 
         if (checkoutError) {
             console.error("Database error:", checkoutError);
@@ -272,7 +269,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        if (activeCheckouts && activeCheckouts.length >= 5) {
+        if (borrowedCheckouts && borrowedCheckouts.length >= 5) {
             return NextResponse.json(
                 { error: "User has reached maximum checkout limit (5 books)" },
                 { status: 400 },
@@ -292,11 +289,11 @@ export async function POST(request: NextRequest) {
                 { status: 500 },
             );
         }
-        // Update book status to "checked_out"
+        // Update book status to "borrowed"
         const { data: updateBookResult, error: updateBookError } =
             await supabaseAdmin
                 .from("books")
-                .update({ status: "checked_out" })
+                .update({ status: "borrowed" })
                 .eq("id", book_id);
 
         if (updateBookError) {
@@ -315,7 +312,7 @@ export async function POST(request: NextRequest) {
                     book_id: book_id,
                     user_id: user_id,
                     due_date: dueDateValue.toISOString(),
-                    status: "active", // 新規チェックアウトはactive
+                    status: "borrowed", // 新規チェックアウトはborrowed
                 },
             ])
             .select()

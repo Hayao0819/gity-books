@@ -1,7 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-
-import type { Checkout } from "@/types/checkout";
 import { requireAuth } from "@/lib/auth";
 
 export async function GET(
@@ -48,10 +46,7 @@ export async function GET(
             .is("deleted_at", null);
 
         if (status) {
-            query = query.eq(
-                "status",
-                status as "active" | "returned" | "overdue",
-            );
+            query = query.eq("status", status as "borrowed" | "returned");
         }
 
         const {

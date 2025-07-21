@@ -70,14 +70,7 @@ export async function GET(request: NextRequest) {
         }
 
         if (status) {
-            query = query.eq(
-                "status",
-                status as
-                    | "available"
-                    | "checked_out"
-                    | "reserved"
-                    | "maintenance",
-            );
+            query = query.eq("status", status as "available" | "borrowed");
         }
 
         const {
@@ -179,11 +172,7 @@ export async function POST(request: NextRequest) {
                     publisher: publisher || null,
                     published_year: published_year || null,
                     description: description || null,
-                    status: "available" as
-                        | "available"
-                        | "checked_out"
-                        | "reserved"
-                        | "maintenance",
+                    status: "available" as "available" | "borrowed",
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString(),
                 },

@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
             await supabaseAdmin
                 .from("books")
                 .select("*", { count: "exact", head: true })
-                .eq("status", "checked_out")
+                .eq("status", "borrowed")
                 .is("deleted_at", null);
 
         if (borrowedBooksError) {
@@ -104,11 +104,12 @@ export async function GET(request: NextRequest) {
         }
 
         // Get overdue books
+        // overdueは廃止。今後は返却期限切れかつstatusがborrowedのものを延滞扱いとする
         const { count: overdueBooks, error: overdueBooksError } =
             await supabaseAdmin
                 .from("checkouts")
                 .select("*", { count: "exact", head: true })
-                .eq("status", "overdue")
+                .eq("status", "borrowed")
                 .lt("due_date", new Date().toISOString())
                 .is("deleted_at", null);
 

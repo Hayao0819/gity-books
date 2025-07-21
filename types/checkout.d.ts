@@ -6,7 +6,7 @@ export interface Checkout {
     checkout_date: string;
     due_date: string;
     return_date: string | null;
-    status: "active" | "returned" | "overdue";
+    status: "borrowed" | "returned";
     created_at: string;
     updated_at: string;
     deleted_at: string | null;
