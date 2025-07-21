@@ -1,5 +1,15 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { apiClient } from "@/lib/api";
+import { Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import type { CheckoutWithBook } from "@/types/checkout";
-// Supabaseからのレスポンス型
+
+// Supabaseからのレスポンス型;
 type SupabaseCheckoutRecord = {
     id: number;
     book_id: number;
@@ -16,6 +26,8 @@ type SupabaseCheckoutRecord = {
     } | null;
 };
 
+// type SupabaseCheckoutRecord = CheckoutWithBook;
+
 function normalizeCheckoutWithBook(
     obj: SupabaseCheckoutRecord,
 ): CheckoutWithBook {
@@ -25,7 +37,7 @@ function normalizeCheckoutWithBook(
         user_id: obj.user_id,
         checkout_date: obj.checkout_date ?? "",
         due_date: obj.due_date ?? "",
-    return_date: obj.return_date !== undefined ? obj.return_date : null,
+        return_date: obj.return_date !== undefined ? obj.return_date : null,
         status:
             obj.status === "borrowed" || obj.status === "returned"
                 ? obj.status
@@ -45,15 +57,6 @@ function normalizeCheckoutWithBook(
               },
     };
 }
-("use client");
-
-import { useState, useEffect, useCallback } from "react";
-import { apiClient } from "@/lib/api";
-import { Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 
 // 返却画面用の貸出中本型
 type BorrowedBook = {
