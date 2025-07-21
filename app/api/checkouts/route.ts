@@ -179,74 +179,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Check if book exists and is available
-        if (!supabaseAdmin) {
-            console.error("Supabase admin client is null");
-            return NextResponse.json(
-                { error: "Internal server error" },
-                { status: 500 },
-            );
-        }
-        const { data: books, error: bookError } = await supabaseAdmin
-            .from("books")
-            .select("id, status")
-            .eq("id", book_id)
-            .is("deleted_at", null);
-
-        if (bookError) {
-            console.error("Database error:", bookError);
-            return NextResponse.json(
-                { error: "Internal server error" },
-                { status: 500 },
-            );
-        }
-
-        if (!books || books.length === 0) {
-            return NextResponse.json(
-                { error: "Book not found" },
-                { status: 404 },
-            );
-        }
-
-        const book = books[0];
-
-        if (book.status !== "available") {
-            return NextResponse.json(
-                { error: "Book is not available for checkout" },
-                { status: 400 },
-            );
-        }
-
-        // Check if user exists
-        if (!supabaseAdmin) {
-            console.error("Supabase admin client is null");
-            return NextResponse.json(
-                { error: "Internal server error" },
-                { status: 500 },
-            );
-        }
-        const { data: users, error: userError } = await supabaseAdmin
-            .from("users")
-            .select("id")
-            .eq("id", user_id)
-            .is("deleted_at", null);
-
-        if (userError) {
-            console.error("Database error:", userError);
-            return NextResponse.json(
-                { error: "Internal server error" },
-                { status: 500 },
-            );
-        }
-
-        if (!users || users.length === 0) {
-            return NextResponse.json(
-                { error: "User not found" },
-                { status: 404 },
-            );
-        }
-
-        // Check user's checkout limit (max 5 books)
+        // ユーザーの貸出上限チェック（5冊まで）
         if (!supabaseAdmin) {
             console.error("Supabase admin client is null");
             return NextResponse.json(
@@ -276,69 +209,36 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Set due date (default 2 weeks from now)
+        // 返却期限（指定がなければ2週間後）
         const dueDateValue = due_date
             ? new Date(due_date)
             : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
 
-        // Use Supabase transaction (RPC function)
-        if (!supabaseAdmin) {
-            console.error("Supabase admin client is null");
-            return NextResponse.json(
-                { error: "Internal server error" },
-                { status: 500 },
-            );
-        }
-        // Update book status to "borrowed"
-        const { data: updateBookResult, error: updateBookError } =
-            await supabaseAdmin
-                .from("books")
-                .update({ status: "borrowed" })
-                .eq("id", book_id);
+        // トランザクション（RPC）で貸出処理
+        const { data: rpcResult, error: rpcError } = await (
+            supabaseAdmin.rpc as unknown as (
+                fn: string,
+                params: Record<string, unknown>,
+            ) => Promise<{ data: any; error: any }>
+        )("checkout_book", {
+            p_book_id: book_id,
+            p_user_id: user_id,
+            p_due_date: dueDateValue.toISOString(),
+        });
 
-        if (updateBookError) {
-            console.error("Update book error:", updateBookError);
+        if (rpcError) {
+            console.error("Checkout RPC error:", rpcError);
             return NextResponse.json(
-                { error: "Failed to update book status" },
-                { status: 500 },
-            );
-        }
-
-        // Create checkout
-        const { data: checkoutResult, error } = await supabaseAdmin
-            .from("checkouts")
-            .insert([
-                {
-                    book_id: book_id,
-                    user_id: user_id,
-                    due_date: dueDateValue.toISOString(),
-                    status: "borrowed", // 新規チェックアウトはborrowed
-                },
-            ])
-            .select()
-            .single();
-
-        if (error) {
-            console.error("Checkout error:", error);
-            return NextResponse.json(
-                { error: "Failed to create checkout" },
-                { status: 500 },
-            );
-        }
-        if (checkoutError) {
-            console.error("Checkout error:", checkoutError);
-            return NextResponse.json(
-                { error: "Failed to create checkout" },
+                { error: rpcError.message || "Failed to checkout book" },
                 { status: 500 },
             );
         }
 
-        const result = checkoutResult?.id;
-
-        // Get checkout with details
-        let checkoutDetails: SupabaseCheckout | null;
+        // 詳細取得
+        let checkoutDetails: SupabaseCheckout | null = null;
         let detailsError: unknown;
-        if (result) {
+        if (rpcResult && rpcResult.length > 0) {
+            const checkoutId = rpcResult[0].id;
             const { data, error } = await supabaseAdmin
                 .from("checkouts")
                 .select(`
@@ -346,13 +246,10 @@ export async function POST(request: NextRequest) {
         books(id, title, author, isbn),
         users(id, name, email, student_id)
       `)
-                .eq("id", result)
+                .eq("id", checkoutId)
                 .single();
             checkoutDetails = data as unknown as SupabaseCheckout | null;
             detailsError = error as unknown;
-        } else {
-            checkoutDetails = null;
-            detailsError = null;
         }
 
         if (detailsError) {
@@ -362,9 +259,6 @@ export async function POST(request: NextRequest) {
                 { status: 500 },
             );
         }
-
-        // 型アサーションを使用して適切な型を指定
-        // const checkout = checkoutDetails as any; // 不要なanyアサーションを削除
 
         return NextResponse.json(
             {
