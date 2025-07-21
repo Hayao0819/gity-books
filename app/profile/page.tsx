@@ -35,10 +35,7 @@ export default function ProfilePage() {
             <div className="mb-2">
                 <span className="font-semibold">ユーザーID:</span> {user.id}
             </div>
-            <div className="mb-2">
-                <span className="font-semibold">Keycloak ID (sub):</span>{" "}
-                {user.sub}
-            </div>
+
             <div className="mb-2">
                 <span className="font-semibold">ユーザー名:</span>{" "}
                 {user.name || user.preferred_username || user.email}
