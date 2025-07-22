@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSearchParams } from "./useSearchParams";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +18,7 @@ import type { Book } from "@/types/book";
 
 import { apiClient } from "@/lib/api";
 import type { User } from "@/types/user";
+import { useSearchParams } from "next/navigation";
 
 export default function CheckoutPage() {
     const [bookSearch, setBookSearch] = useState("");

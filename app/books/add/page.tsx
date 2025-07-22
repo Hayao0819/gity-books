@@ -15,8 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import apiClient from "@/lib/api";
-
+import { useAddBook } from "@/hooks/use-add-book";
 export default function AddBookPage() {
     const [formData, setFormData] = useState({
         title: "",
@@ -26,19 +25,12 @@ export default function AddBookPage() {
         published_year: "",
         description: "",
     });
-
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState(false);
     const router = useRouter();
+    const { addBook, loading, error, success } = useAddBook();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
-        setError(null);
-        setSuccess(false);
         try {
-            // published_yearは数値型に変換
             const payload = {
                 title: formData.title,
                 author: formData.author,
@@ -49,22 +41,10 @@ export default function AddBookPage() {
                     : null,
                 description: formData.description || null,
             };
-            // APIリクエスト
-            const res = await apiClient.createBook(payload);
-            console.log("Book created:", res);
-            setSuccess(true);
-            // 本一覧ページへリダイレクト
+            await addBook(payload);
             router.push("/books");
-        } catch (err: unknown) {
-            if (err instanceof Error) {
-                setError(err.message);
-            } else if (typeof err === "string") {
-                setError(err);
-            } else {
-                setError("本の追加に失敗しました");
-            }
-        } finally {
-            setLoading(false);
+        } catch {
+            // errorはフックで管理
         }
     };
 

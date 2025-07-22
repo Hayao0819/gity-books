@@ -12,14 +12,29 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/hooks/use-auth";
+import { useSearchParams } from "next/navigation";
+
+function useRequiredLogin() {
+    const params = useSearchParams();
+    return params.get("required") === "true";
+}
+
+function useRedirect(callback: () => void) {
+    const params = useSearchParams();
+    useEffect(() => {
+        if (params.get("redirect") === "true") {
+            callback();
+        }
+    }, [callback, params]);
+}
 
 export default function LoginPage() {
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
-    const [required, setRequired] = useState(false);
     const { login, authenticated, loading } = useAuth();
-    // Next.jsのルーター
     const [redirected, setRedirected] = useState(false);
+    const required = useRequiredLogin();
+
     useEffect(() => {
         if (authenticated && !loading && !redirected) {
             window.location.replace("/");
@@ -41,17 +56,7 @@ export default function LoginPage() {
     }, [login]);
 
     // ?redirect=true の場合は自動でログイン
-    useEffect(() => {
-        if (typeof window !== "undefined") {
-            const params = new URLSearchParams(window.location.search);
-            if (params.get("redirect") === "true") {
-                handleLogin();
-            }
-            if (params.get("required") === "true") {
-                setRequired(true);
-            }
-        }
-    }, [handleLogin]);
+    useRedirect(handleLogin);
 
     return (
         <div className="flex justify-center items-center min-h-[60vh]">
