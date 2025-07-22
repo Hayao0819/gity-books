@@ -48,7 +48,10 @@ export async function GET(
             .is("deleted_at", null);
 
         if (status) {
-            query = query.eq("status", status as "borrowed" | "returned");
+            // DBのstatus値はborrowed/returnedのみ
+            if (["borrowed", "returned"].includes(status)) {
+                query = query.eq("status", status);
+            }
         }
 
         const {

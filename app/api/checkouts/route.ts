@@ -2,28 +2,10 @@ import { type NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
 import type { CheckoutWithBook } from "@/types/checkout";
-// Supabaseからのレスポンス型
-type SupabaseCheckoutRecord = {
-    id: number;
-    book_id: number;
-    user_id: number;
-    checkout_date: string | null;
-    due_date: string;
-    return_date: string | null;
-    status: string;
-    books?: {
-        id: number;
-        title: string;
-        author: string;
-        isbn: string | null;
-    } | null;
-    users?: {
-        id: number;
-        name: string;
-        email: string;
-        student_id: string | null;
-    } | null;
-};
+import {
+    transformCheckoutWithBook,
+    type SupabaseCheckoutRecord,
+} from "@/lib/utils/checkout-transform";
 
 export async function GET(request: NextRequest) {
     try {
@@ -60,7 +42,9 @@ export async function GET(request: NextRequest) {
             .is("deleted_at", null);
 
         if (status) {
-            query = query.eq("status", status as "borrowed" | "returned");
+            if (["borrowed", "returned"].includes(status)) {
+                query = query.eq("status", status);
+            }
         }
 
         if (userId) {
@@ -88,32 +72,7 @@ export async function GET(request: NextRequest) {
         }
 
         const formattedCheckouts: CheckoutWithBook[] = (checkouts || []).map(
-            (checkout: SupabaseCheckoutRecord) => ({
-                id: checkout.id,
-                book_id: checkout.book_id,
-                user_id: checkout.user_id,
-                checkout_date: checkout.checkout_date ?? "",
-                due_date: checkout.due_date ?? "",
-                return_date: checkout.return_date ?? null,
-                status:
-                    checkout.status === "borrowed" ||
-                    checkout.status === "returned"
-                        ? checkout.status
-                        : "borrowed",
-                book: checkout.books
-                    ? {
-                          id: checkout.books.id,
-                          title: checkout.books.title,
-                          author: checkout.books.author,
-                          isbn: checkout.books.isbn ?? null,
-                      }
-                    : {
-                          id: 0,
-                          title: "",
-                          author: "",
-                          isbn: null,
-                      },
-            }),
+            transformCheckoutWithBook,
         );
 
         return NextResponse.json({
@@ -235,32 +194,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
             {
                 checkout: checkoutDetails
-                    ? {
-                          id: checkoutDetails.id,
-                          book_id: checkoutDetails.book_id,
-                          user_id: checkoutDetails.user_id,
-                          checkout_date: checkoutDetails.checkout_date ?? "",
-                          due_date: checkoutDetails.due_date ?? "",
-                          return_date: checkoutDetails.return_date ?? null,
-                          status:
-                              checkoutDetails.status === "borrowed" ||
-                              checkoutDetails.status === "returned"
-                                  ? checkoutDetails.status
-                                  : "borrowed",
-                          book: checkoutDetails.books
-                              ? {
-                                    id: checkoutDetails.books.id,
-                                    title: checkoutDetails.books.title,
-                                    author: checkoutDetails.books.author,
-                                    isbn: checkoutDetails.books.isbn ?? null,
-                                }
-                              : {
-                                    id: 0,
-                                    title: "",
-                                    author: "",
-                                    isbn: null,
-                                },
-                      }
+                    ? transformCheckoutWithBook(checkoutDetails)
                     : null,
             },
             { status: 201 },

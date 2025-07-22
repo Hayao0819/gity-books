@@ -34,7 +34,7 @@ export async function PUT(
             .from("checkouts")
             .select("id, book_id, status")
             .eq("id", checkoutId)
-            .eq("status", "active")
+            .eq("status", "borrowed")
             .is("deleted_at", null);
 
         if (checkError) {
@@ -52,7 +52,7 @@ export async function PUT(
             );
         }
 
-        // Use RPC function to return book
+        // 返却処理: checkouts.status更新 & books.statusもavailableへ
         if (!supabaseAdmin) {
             console.error("Supabase admin client is null");
             return NextResponse.json(
@@ -60,7 +60,8 @@ export async function PUT(
                 { status: 500 },
             );
         }
-        const { data: success, error: returnError } = await supabaseAdmin
+        // 1. checkoutsテーブル更新
+        const { data: _, error: returnError } = await supabaseAdmin
             .from("checkouts")
             .update({
                 status: "returned",
@@ -72,6 +73,23 @@ export async function PUT(
             console.error("Return error:", returnError);
             return NextResponse.json(
                 { error: "Failed to return book" },
+                { status: 500 },
+            );
+        }
+
+        // 2. booksテーブル更新
+        const bookId = checkouts[0].book_id;
+        const { error: bookUpdateError } = await supabaseAdmin
+            .from("books")
+            .update({
+                status: "available",
+                updated_at: new Date().toISOString(),
+            })
+            .eq("id", bookId);
+        if (bookUpdateError) {
+            console.error("Book status update error:", bookUpdateError);
+            return NextResponse.json(
+                { error: "Failed to update book status" },
                 { status: 500 },
             );
         }

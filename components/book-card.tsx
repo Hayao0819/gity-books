@@ -13,7 +13,7 @@ import type { Book } from "@/types/book";
 
 interface BookCardProps {
     book: Book;
-    onReturn?: (bookId: string) => void;
+    onReturn?: (bookId: number) => void;
 }
 
 import { Calendar, User, Book as LucideBook } from "lucide-react";

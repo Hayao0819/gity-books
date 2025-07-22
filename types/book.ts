@@ -1,6 +1,6 @@
 // Local interface for the hook's transformed book data
 export interface Book {
-    id: string;
+    id: number;
     title: string;
     author: string;
     isbn: string | null;
@@ -13,3 +13,15 @@ export interface Book {
     borrowedBy?: string;
     dueDate?: string;
 }
+
+export type BookSummary = Omit<
+    Book,
+    | "description"
+    | "publisher"
+    | "published_year"
+    | "created_at"
+    | "updated_at"
+    | "borrowedBy"
+    | "dueDate"
+    | "status"
+>;

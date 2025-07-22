@@ -1,146 +1,48 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { apiClient } from "@/lib/api";
+import { useState, useEffect } from "react";
+import { useBorrowedBooks } from "@/hooks/use-borrowed-books";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import type { CheckoutWithBook } from "@/types/checkout";
 
-// Supabaseからのレスポンス型;
-type SupabaseCheckoutRecord = {
-    id: number;
-    book_id: number;
-    user_id: number;
-    checkout_date: string | null;
-    due_date: string;
-    return_date?: string | null; // undefinedも許容
-    status: string;
-    book?: {
-        id: number;
-        title: string;
-        author: string;
-        isbn: string | null;
-    } | null;
-};
-
-// type SupabaseCheckoutRecord = CheckoutWithBook;
-
-function normalizeCheckoutWithBook(
-    obj: SupabaseCheckoutRecord,
-): CheckoutWithBook {
-    return {
-        id: obj.id,
-        book_id: obj.book_id,
-        user_id: obj.user_id,
-        checkout_date: obj.checkout_date ?? "",
-        due_date: obj.due_date ?? "",
-        return_date: obj.return_date !== undefined ? obj.return_date : null,
-        status:
-            obj.status === "borrowed" || obj.status === "returned"
-                ? obj.status
-                : "borrowed",
-        book: obj.book
-            ? {
-                  id: obj.book.id,
-                  title: obj.book.title,
-                  author: obj.book.author,
-                  isbn: obj.book.isbn ?? null,
-              }
-            : {
-                  id: 0,
-                  title: "",
-                  author: "",
-                  isbn: null,
-              },
-    };
-}
-
-// 返却画面用の貸出中本型
-type BorrowedBook = {
-    id: string; // チェックアウトID
-    title: string;
-    author: string;
-    isbn: string;
-    borrowedBy: string;
-    borrowedDate: string;
-    dueDate: string;
-    isOverdue: boolean;
-    returnDate?: string;
-};
+import { useRequireLoginRedirect } from "@/hooks/use-auth";
+import apiClient from "@/lib/api";
 
 export default function ReturnPage() {
     const [searchTerm, setSearchTerm] = useState("");
+    useRequireLoginRedirect();
 
-    // 実データ取得用の状態
-    const [borrowedBooks, setBorrowedBooks] = useState<BorrowedBook[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    // ログインユーザーのID取得（簡易実装: /api/auth/me で取得）
-    // fetchBorrowedBooksをuseEffect外に出す
-
-    const fetchBorrowedBooks = useCallback(async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            // まず自分のユーザーIDを取得
-            const me = await apiClient.getMe();
-            const userId = me.user.id;
-            // 自分の貸出中の本一覧を取得
-            const res = await apiClient.getUserCheckouts(userId, {
-                status: "active",
-            });
-            setBorrowedBooks(
-                (res.checkouts || []).map(normalizeCheckoutWithBook).map(
-                    (c): BorrowedBook => ({
-                        id: String(c.id),
-                        title: c.book.title,
-                        author: c.book.author,
-                        isbn: c.book.isbn || "",
-                        borrowedBy: me.user.name,
-                        borrowedDate: c.checkout_date
-                            ? c.checkout_date.slice(0, 10)
-                            : "",
-                        dueDate: c.due_date ? c.due_date.slice(0, 10) : "",
-                        isOverdue: false, // c.statusが"overdue"はAPI側で返さないためfalse固定
-                        returnDate: c.return_date
-                            ? c.return_date.slice(0, 10)
-                            : undefined,
-                    }),
-                ),
-            );
-        } catch (err: unknown) {
-            let errorMsg = "";
-            if (typeof err === "object" && err !== null) {
-                if (
-                    "error" in err &&
-                    typeof (err as { error?: unknown }).error === "string"
-                ) {
-                    errorMsg = (err as { error: string }).error;
-                } else if (
-                    "message" in err &&
-                    typeof (err as { message?: unknown }).message === "string"
-                ) {
-                    errorMsg = (err as { message: string }).message;
-                }
-            }
-            setError(errorMsg || "貸出中の本の取得に失敗しました");
-            setBorrowedBooks([]);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+    // useBorrowedBooksフックでデータ取得
+    const { borrowedBooks, dataLoading, error, fetchBorrowedBooks } =
+        useBorrowedBooks();
 
     useEffect(() => {
         fetchBorrowedBooks();
     }, [fetchBorrowedBooks]);
 
-    // 返却処理ボタン用のダミー関数
-    const handleReturn = (checkoutId: string) => {
-        alert(`返却処理: チェックアウトID=${checkoutId}`);
+    // 返却処理ボタン
+    const [returnLoading, setReturnLoading] = useState<number | null>(null);
+    const [returnError, setReturnError] = useState<string | null>(null);
+    const handleReturn = async (checkoutId: number) => {
+        setReturnLoading(checkoutId);
+        setReturnError(null);
+        try {
+            await apiClient.returnBook(checkoutId);
+            await fetchBorrowedBooks();
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                setReturnError(err.message);
+            } else if (typeof err === "string") {
+                setReturnError(err);
+            } else {
+                setReturnError("返却処理に失敗しました");
+            }
+        } finally {
+            setReturnLoading(null);
+        }
     };
 
     const filteredBooks = borrowedBooks.filter(
@@ -171,12 +73,18 @@ export default function ReturnPage() {
                 </div>
             </div>
 
-            {loading ? (
+            {dataLoading ? (
                 <div className="text-center py-8">貸出中の本を取得中...</div>
             ) : error ? (
                 <div className="text-center py-8 text-red-500">{error}</div>
             ) : (
                 <>
+                    {/* 通信エラーはカードの外に表示 */}
+                    {returnError && (
+                        <div className="text-center py-2 text-red-500">
+                            {returnError}
+                        </div>
+                    )}
                     <div className="space-y-4">
                         {filteredBooks.map((book) => (
                             <Card key={book.id}>
@@ -227,12 +135,16 @@ export default function ReturnPage() {
                                             </div>
                                         </div>
                                         <Button
-                                            onClick={() =>
-                                                handleReturn(book.id)
-                                            }
+                                            onClick={async (e) => {
+                                                e.preventDefault();
+                                                await handleReturn(book.id);
+                                            }}
                                             className="ml-4"
+                                            disabled={returnLoading === book.id}
                                         >
-                                            返却処理
+                                            {returnLoading === book.id
+                                                ? "返却中..."
+                                                : "返却処理"}
                                         </Button>
                                     </div>
                                 </CardContent>

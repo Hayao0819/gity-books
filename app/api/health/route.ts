@@ -11,14 +11,20 @@ export async function GET(_: NextRequest) {
             uptime: process.uptime(),
             environment: {
                 node_env: process.env.NODE_ENV || "development",
-                // Check if environment variables exist without exposing values
                 config: {
-                    supabase_url: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-                    supabase_anon_key:
+                    // Next.js public Supabase
+                    next_public_supabase_url:
+                        !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+                    next_public_supabase_anon_key:
                         !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-                    supabase_service_key:
+                    // Server-side Supabase
+                    supabase_url: !!process.env.SUPABASE_URL,
+                    supabase_key: !!process.env.SUPABASE_KEY,
+                    supabase_service_role_key:
                         !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+                    // Auth
                     jwt_secret: !!process.env.JWT_SECRET,
+                    auth_secret: !!process.env.AUTH_SECRET,
                 },
             },
         };

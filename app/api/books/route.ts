@@ -1,5 +1,6 @@
-import { type NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin, isSupabaseConfigured } from "@/lib/supabase";
+import { type NextRequest, NextResponse } from "next/server";
+import { getErrorMessage } from "@/lib/error";
 import { optionalAuth } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
@@ -108,8 +109,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(
             {
                 error: "Internal server error",
-                details:
-                    error instanceof Error ? error.message : "Unknown error",
+                details: getErrorMessage(error, "Unknown error"),
             },
             { status: 500 },
         );

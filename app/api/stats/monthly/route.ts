@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { type NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
+import { ensureSupabaseAdmin } from "@/lib/supabase-check";
 
 export async function GET(request: NextRequest) {
     try {
@@ -25,15 +26,13 @@ export async function GET(request: NextRequest) {
         const startDate = new Date(year, month - 1, 1);
         const endDate = new Date(year, month, 0, 23, 59, 59);
 
-        // Get daily checkout counts using Supabase's date functions
-        if (!supabaseAdmin) {
-            console.error("Supabase admin client is null");
-            return NextResponse.json(
-                { error: "Internal server error" },
-                { status: 500 },
-            );
-        }
+        // supabaseAdmin存在チェック
+        const supabaseCheck = ensureSupabaseAdmin();
+        if (supabaseCheck !== true) return supabaseCheck;
+
         type DailyStat = { date: string; count: number };
+
+        // Get daily checkout counts
         const { data: checkoutStatsRaw, error: checkoutError } = await (
             supabaseAdmin.rpc as unknown as (
                 fn: string,
@@ -54,13 +53,6 @@ export async function GET(request: NextRequest) {
         }
 
         // Get daily return counts
-        if (!supabaseAdmin) {
-            console.error("Supabase admin client is null");
-            return NextResponse.json(
-                { error: "Internal server error" },
-                { status: 500 },
-            );
-        }
         const { data: returnStatsRaw, error: returnError } = await (
             supabaseAdmin.rpc as unknown as (
                 fn: string,

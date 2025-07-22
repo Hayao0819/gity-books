@@ -19,13 +19,10 @@ export async function PUT(
 
         const { status } = await request.json();
 
-        if (
-            !status ||
-            !["available", "borrowed", "maintenance"].includes(status)
-        ) {
+        if (!status || !["available", "borrowed"].includes(status)) {
             return NextResponse.json(
                 {
-                    error: "Invalid status. Must be available, borrowed, or maintenance",
+                    error: "Invalid status. Must be available or borrowed",
                 },
                 { status: 400 },
             );

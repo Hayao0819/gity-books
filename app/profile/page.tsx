@@ -1,94 +1,13 @@
 "use client";
 
-// import type {   } from "@/types/checkout-with-book";
+import { useRequireLoginRedirect } from "@/hooks/use-auth";
 
-import { useEffect, useState } from "react";
-import type { User } from "@/types/user";
-import { apiClient } from "@/lib/api";
-import type { CheckoutWithBook as CheckoutWithBookResponse } from "@/types/checkout";
-
-// APIレスポンスをCheckoutWithBookResponse型に正規化
-function normalizeCheckoutWithBook(obj: unknown): CheckoutWithBookResponse {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const o = obj as any;
-    return {
-        id: o.id,
-        book_id: o.book_id,
-        user_id: o.user_id,
-        checkout_date: o.checkout_date,
-        due_date: o.due_date,
-        return_date: o.return_date ?? null,
-        status: o.status as CheckoutWithBookResponse["status"],
-        book: o.book
-            ? {
-                  id: o.book.id,
-                  title: o.book.title,
-                  author: o.book.author,
-                  isbn: o.book.isbn ?? null,
-              }
-            : {
-                  id: 0,
-                  title: "",
-                  author: "",
-                  isbn: null,
-              },
-    };
-}
+import { useProfileData } from "@/hooks/use-profile-data";
 
 export default function ProfilePage() {
-    const [user, setUser] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [borrowed, setBorrowed] = useState<CheckoutWithBookResponse[]>([]);
-    const [history, setHistory] = useState<CheckoutWithBookResponse[]>([]);
-    const [loadingBooks, setLoadingBooks] = useState(true);
+    const { user, borrowed, history, loading, loadingBooks } = useProfileData();
 
-    useEffect(() => {
-        async function fetchUserAndBooks() {
-            try {
-                setLoading(true);
-                const res = await fetch("/api/auth/me", {
-                    credentials: "include",
-                });
-                if (!res.ok)
-                    throw new Error("ユーザー情報の取得に失敗しました");
-                const data = await res.json();
-                setUser(data.user ?? null);
-
-                if (data.user) {
-                    setLoadingBooks(true);
-                    // 現在借りている本
-                    const borrowedRes = await apiClient.getCheckouts({
-                        user_id: data.user.id,
-                        status: "borrowed",
-                        limit: 20,
-                    });
-                    setBorrowed(
-                        (borrowedRes.checkouts || []).map(
-                            normalizeCheckoutWithBook,
-                        ),
-                    );
-                    // 過去の履歴
-                    const historyRes = await apiClient.getCheckouts({
-                        user_id: data.user.id,
-                        status: "returned",
-                        limit: 20,
-                    });
-                    setHistory(
-                        (historyRes.checkouts || []).map(
-                            normalizeCheckoutWithBook,
-                        ),
-                    );
-                }
-            } catch (_) {
-                setUser(null);
-            } finally {
-                setLoading(false);
-                setLoadingBooks(false);
-            }
-        }
-        fetchUserAndBooks();
-    }, []);
-
+    useRequireLoginRedirect();
     if (loading) return <div>読み込み中...</div>;
     if (!user) return <div>ユーザー情報が取得できませんでした。</div>;
 
