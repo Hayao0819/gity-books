@@ -42,7 +42,9 @@ export async function GET(request: NextRequest) {
             .is("deleted_at", null);
 
         if (status) {
-            query = query.eq("status", status as "borrowed" | "returned");
+            if (["borrowed", "returned"].includes(status)) {
+                query = query.eq("status", status);
+            }
         }
 
         if (userId) {

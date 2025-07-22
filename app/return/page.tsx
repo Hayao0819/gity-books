@@ -18,14 +18,31 @@ export default function ReturnPage() {
     // useBorrowedBooksフックでデータ取得
     const { borrowedBooks, dataLoading, error, fetchBorrowedBooks } =
         useBorrowedBooks();
+
     useEffect(() => {
         fetchBorrowedBooks();
     }, [fetchBorrowedBooks]);
 
     // 返却処理ボタン
+    const [returnLoading, setReturnLoading] = useState<number | null>(null);
+    const [returnError, setReturnError] = useState<string | null>(null);
     const handleReturn = async (checkoutId: number) => {
-        apiClient.returnBook(checkoutId);
-        await fetchBorrowedBooks();
+        setReturnLoading(checkoutId);
+        setReturnError(null);
+        try {
+            await apiClient.returnBook(checkoutId);
+            await fetchBorrowedBooks();
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                setReturnError(err.message);
+            } else if (typeof err === "string") {
+                setReturnError(err);
+            } else {
+                setReturnError("返却処理に失敗しました");
+            }
+        } finally {
+            setReturnLoading(null);
+        }
     };
 
     const filteredBooks = borrowedBooks.filter(
@@ -62,6 +79,12 @@ export default function ReturnPage() {
                 <div className="text-center py-8 text-red-500">{error}</div>
             ) : (
                 <>
+                    {/* 通信エラーはカードの外に表示 */}
+                    {returnError && (
+                        <div className="text-center py-2 text-red-500">
+                            {returnError}
+                        </div>
+                    )}
                     <div className="space-y-4">
                         {filteredBooks.map((book) => (
                             <Card key={book.id}>
@@ -112,12 +135,16 @@ export default function ReturnPage() {
                                             </div>
                                         </div>
                                         <Button
-                                            onClick={() =>
-                                                handleReturn(book.id)
-                                            }
+                                            onClick={async (e) => {
+                                                e.preventDefault();
+                                                await handleReturn(book.id);
+                                            }}
                                             className="ml-4"
+                                            disabled={returnLoading === book.id}
                                         >
-                                            返却処理
+                                            {returnLoading === book.id
+                                                ? "返却中..."
+                                                : "返却処理"}
                                         </Button>
                                     </div>
                                 </CardContent>
