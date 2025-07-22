@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -12,20 +12,24 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/hooks/use-auth";
-import { useSearchParams } from "next/navigation";
 
-function useRequiredLogin() {
+// SuspenseでラップしてuseSearchParamsを使うコンポーネント
+function RequiredFlag({ setRequired }: { setRequired: (v: boolean) => void }) {
     const params = useSearchParams();
-    return params.get("required") === "true";
+    useEffect(() => {
+        setRequired(params.get("required") === "true");
+    }, [params, setRequired]);
+    return null;
 }
 
-function useRedirect(callback: () => void) {
+function RedirectFlag({ handleLogin }: { handleLogin: () => void }) {
     const params = useSearchParams();
     useEffect(() => {
         if (params.get("redirect") === "true") {
-            callback();
+            handleLogin();
         }
-    }, [callback, params]);
+    }, [params, handleLogin]);
+    return null;
 }
 
 export default function LoginPage() {
@@ -33,14 +37,7 @@ export default function LoginPage() {
     const [isLoading, setIsLoading] = useState(false);
     const { login, authenticated, loading } = useAuth();
     const [redirected, setRedirected] = useState(false);
-    const required = useRequiredLogin();
-
-    useEffect(() => {
-        if (authenticated && !loading && !redirected) {
-            window.location.replace("/");
-            setRedirected(true);
-        }
-    }, [authenticated, loading, redirected]);
+    const [required, setRequired] = useState(false);
 
     const handleLogin = useCallback(async () => {
         setError(null);
@@ -55,11 +52,19 @@ export default function LoginPage() {
         }
     }, [login]);
 
-    // ?redirect=true の場合は自動でログイン
-    useRedirect(handleLogin);
+    useEffect(() => {
+        if (authenticated && !loading && !redirected) {
+            window.location.replace("/");
+            setRedirected(true);
+        }
+    }, [authenticated, loading, redirected]);
 
     return (
         <div className="flex justify-center items-center min-h-[60vh]">
+            <Suspense fallback={null}>
+                <RequiredFlag setRequired={setRequired} />
+                <RedirectFlag handleLogin={handleLogin} />
+            </Suspense>
             <Card className="w-full max-w-md">
                 <CardHeader className="space-y-1">
                     <CardTitle className="text-2xl text-center">

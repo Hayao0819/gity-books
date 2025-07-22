@@ -11,8 +11,6 @@ import { Badge } from "@/components/ui/badge";
 import { useRequireLoginRedirect } from "@/hooks/use-auth";
 import apiClient from "@/lib/api";
 
-// ...existing code...
-
 export default function ReturnPage() {
     const [searchTerm, setSearchTerm] = useState("");
     useRequireLoginRedirect();

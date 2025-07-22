@@ -1,12 +1,13 @@
 "use client";
 
-// import type {   } from "@/types/checkout-with-book";
+import { useRequireLoginRedirect } from "@/hooks/use-auth";
 
 import { useProfileData } from "@/hooks/use-profile-data";
 
 export default function ProfilePage() {
     const { user, borrowed, history, loading, loadingBooks } = useProfileData();
 
+    useRequireLoginRedirect();
     if (loading) return <div>読み込み中...</div>;
     if (!user) return <div>ユーザー情報が取得できませんでした。</div>;
 
