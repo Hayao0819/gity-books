@@ -9,3 +9,8 @@ export interface User {
     updated_at: string;
     deleted_at: string | null;
 }
+
+export type UserSummary = Omit<
+    User,
+    "created_at" | "updated_at" | "deleted_at" | "role"
+>;

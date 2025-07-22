@@ -42,12 +42,12 @@ export default function AddBookPage() {
             const payload = {
                 title: formData.title,
                 author: formData.author,
-                isbn: formData.isbn || undefined,
-                publisher: formData.publisher || undefined,
+                isbn: formData.isbn || null,
+                publisher: formData.publisher || null,
                 published_year: formData.published_year
                     ? Number(formData.published_year)
-                    : undefined,
-                description: formData.description || undefined,
+                    : null,
+                description: formData.description || null,
             };
             // APIリクエスト
             const res = await apiClient.createBook(payload);

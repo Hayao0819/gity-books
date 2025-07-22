@@ -2,9 +2,8 @@ export const dynamic = "force-dynamic";
 import { type NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
-// import type { CheckoutWithBookResponse } from "@/types/checkout-with-book";
-import type { User } from "@/types/user";
-import type { Checkout, CheckoutWithBook } from "@/types/checkout";
+import type { CheckoutWithUserAndBook } from "@/types/checkout";
+import { transformCheckoutWithUserAndBook } from "@/lib/utils/checkout-transform";
 
 export async function GET(request: NextRequest) {
     try {
@@ -54,44 +53,9 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        const formattedCheckouts: (Checkout & {
-            user?: User;
-        })[] = (checkouts || []).map(
-            (checkout): CheckoutWithBook & { user?: User } => ({
-                id: checkout.id,
-                book_id: checkout.book_id,
-                user_id: checkout.user_id,
-                checkout_date: checkout.checkout_date ?? "",
-                due_date: checkout.due_date ?? "",
-                return_date: checkout.return_date ?? null,
-                status: checkout.status as Checkout["status"],
-                book: checkout.books
-                    ? {
-                          id: checkout.books.id,
-                          title: checkout.books.title,
-                          author: checkout.books.author,
-                          isbn: checkout.books.isbn ?? null,
-                      }
-                    : {
-                          id: 0,
-                          title: "",
-                          author: "",
-                          isbn: null,
-                      },
-                user: checkout.users
-                    ? {
-                          id: checkout.users.id,
-                          name: checkout.users.name,
-                          email: checkout.users.email,
-                          role: "user",
-                          student_id: checkout.users.student_id ?? null,
-                          created_at: "",
-                          updated_at: "",
-                          deleted_at: null,
-                      }
-                    : undefined,
-            }),
-        );
+        const formattedCheckouts: CheckoutWithUserAndBook[] = (
+            checkouts || []
+        ).map(transformCheckoutWithUserAndBook);
 
         return NextResponse.json({
             checkouts: formattedCheckouts,

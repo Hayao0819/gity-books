@@ -60,7 +60,7 @@ export async function PUT(
                 { status: 500 },
             );
         }
-        const { data: success, error: returnError } = await supabaseAdmin
+        const { data: _, error: returnError } = await supabaseAdmin
             .from("checkouts")
             .update({
                 status: "returned",

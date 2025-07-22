@@ -5,41 +5,14 @@
 import { useEffect, useState } from "react";
 import type { User } from "@/types/user";
 import { apiClient } from "@/lib/api";
-import type { CheckoutWithBook as CheckoutWithBookResponse } from "@/types/checkout";
-
-// APIレスポンスをCheckoutWithBookResponse型に正規化
-function normalizeCheckoutWithBook(obj: unknown): CheckoutWithBookResponse {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const o = obj as any;
-    return {
-        id: o.id,
-        book_id: o.book_id,
-        user_id: o.user_id,
-        checkout_date: o.checkout_date,
-        due_date: o.due_date,
-        return_date: o.return_date ?? null,
-        status: o.status as CheckoutWithBookResponse["status"],
-        book: o.book
-            ? {
-                  id: o.book.id,
-                  title: o.book.title,
-                  author: o.book.author,
-                  isbn: o.book.isbn ?? null,
-              }
-            : {
-                  id: 0,
-                  title: "",
-                  author: "",
-                  isbn: null,
-              },
-    };
-}
+import { normalizeCheckoutWithBook } from "@/lib/utils/return-transform";
+import type { CheckoutWithBook } from "@/types/checkout";
 
 export default function ProfilePage() {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
-    const [borrowed, setBorrowed] = useState<CheckoutWithBookResponse[]>([]);
-    const [history, setHistory] = useState<CheckoutWithBookResponse[]>([]);
+    const [borrowed, setBorrowed] = useState<CheckoutWithBook[]>([]);
+    const [history, setHistory] = useState<CheckoutWithBook[]>([]);
     const [loadingBooks, setLoadingBooks] = useState(true);
 
     useEffect(() => {

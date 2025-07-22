@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { apiClient } from "@/lib/api";
+import { getErrorMessage } from "@/lib/error";
 import type { Book } from "@/types/book";
 
 export function useBooks(search = "") {
@@ -26,7 +27,7 @@ export function useBooks(search = "") {
 
             // Transform the data to match the expected format
             const transformedBooks: Book[] = response.books.map((book) => ({
-                id: book.id.toString(),
+                id: typeof book.id === "string" ? Number(book.id) : book.id,
                 title: book.title,
                 author: book.author,
                 isbn: book.isbn ?? null,
@@ -44,8 +45,7 @@ export function useBooks(search = "") {
             setBooks(transformedBooks);
         } catch (err) {
             console.error("Error fetching books:", err);
-            const errorMessage =
-                err instanceof Error ? err.message : "本の取得に失敗しました";
+            const errorMessage = getErrorMessage(err, "本の取得に失敗しました");
             setError(errorMessage);
             setBooks([]);
         } finally {

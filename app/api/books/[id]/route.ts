@@ -1,17 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-
-import type { CheckoutRecord, Checkout } from "@/types/checkout";
+import { transformBookWithCheckouts } from "@/lib/utils/book-transform";
 import { requireAuth } from "@/lib/auth";
+import type { Book } from "@/types/book";
+import { isErrorWithMessage } from "@/lib/error";
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } },
+    { params }: { params: { id: number } },
 ) {
     try {
         await requireAuth(request);
 
-        const bookId = Number.parseInt(params.id);
+        const bookId = params.id;
         if (Number.isNaN(bookId)) {
             return NextResponse.json(
                 { error: "Invalid book ID" },
@@ -60,42 +61,12 @@ export async function GET(
         }
 
         const book = books[0];
-
-        // Format checkouts
-        type User = { id: number; name: string; email: string };
-        const checkouts = (
-            book.checkouts as (CheckoutRecord & { users?: User })[]
-        )
-            .filter((checkout) => checkout.status === "borrowed")
-            .map((checkout): Checkout & { user?: User } => ({
-                id: checkout.id,
-                book_id: checkout.book_id,
-                user_id: checkout.user_id,
-                checkout_date: checkout.checkout_date,
-                due_date: checkout.due_date,
-                return_date: checkout.return_date,
-                status: checkout.status,
-                user: checkout.users,
-            }));
-
         return NextResponse.json({
-            book: {
-                id: book.id,
-                title: book.title,
-                author: book.author,
-                isbn: book.isbn,
-                publisher: book.publisher,
-                published_year: book.published_year,
-                description: book.description,
-                status: book.status,
-                created_at: book.created_at,
-                updated_at: book.updated_at,
-                checkouts,
-            },
+            book: transformBookWithCheckouts(book as Book),
         });
     } catch (error) {
         console.error("Get book error:", error);
-        if (error instanceof Error && error.message.includes("token")) {
+        if (isErrorWithMessage(error, "token")) {
             return NextResponse.json({ error: error.message }, { status: 401 });
         }
         return NextResponse.json(
@@ -231,7 +202,7 @@ export async function PUT(
         return NextResponse.json({ book });
     } catch (error) {
         console.error("Update book error:", error);
-        if (error instanceof Error && error.message.includes("token")) {
+        if (isErrorWithMessage(error, "token")) {
             return NextResponse.json({ error: error.message }, { status: 401 });
         }
         return NextResponse.json(
@@ -335,7 +306,7 @@ export async function DELETE(
         return NextResponse.json({ message: "Book deleted successfully" });
     } catch (error) {
         console.error("Delete book error:", error);
-        if (error instanceof Error && error.message.includes("token")) {
+        if (isErrorWithMessage(error, "token")) {
             return NextResponse.json({ error: error.message }, { status: 401 });
         }
         return NextResponse.json(

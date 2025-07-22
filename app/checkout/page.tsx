@@ -46,11 +46,7 @@ export default function CheckoutPage() {
             setUsersLoading(true);
             setUsersError(null);
             try {
-                const res = await apiClient.getUsers({
-                    search: userSearch,
-                    page: 1,
-                    limit: 50,
-                });
+                const res = await apiClient.getUsers();
                 console.log("Users response:", res);
                 setUsers(
                     res.users.map((u) => ({
@@ -76,7 +72,7 @@ export default function CheckoutPage() {
             }
         };
         fetchUsers();
-    }, [userSearch]);
+    }, []);
 
     const handleCheckout = async () => {
         if (selectedBook && selectedUser) {

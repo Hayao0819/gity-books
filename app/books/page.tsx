@@ -11,7 +11,7 @@ export default function BooksPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const { books, loading } = useBooks(searchTerm);
 
-    const handleReturn = (bookId: string) => {
+    const handleReturn = (bookId: number) => {
         // 実際はGoバックエンドのAPIを呼び出し
         console.log("Return book:", bookId);
     };

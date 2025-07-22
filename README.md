@@ -6,12 +6,12 @@
 
 - **フロントエンド**: Next.js 14, TypeScript, Tailwind CSS, shadcn/ui
 - **バックエンド**: Next.js API Routes（Edge Functions）、Supabase/PostgreSQL
-- **認証**: JWT（NextAuth.js/Keycloak）
+- **認証**: JWT（Auth.js/Keycloak）
 - **インフラ**: Docker, Docker Compose, Vercel
 
 ## ディレクトリ構成
 
-```
+```txt
 app/         ... Next.js App Router/各種ページ・API
 components/  ... UIコンポーネント
 hooks/       ... Reactカスタムフック

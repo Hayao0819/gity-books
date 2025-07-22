@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 
 export async function GET(
-    request: NextRequest,
+    _: NextRequest,
     { params }: { params: { id: string } },
 ) {
     try {
@@ -106,7 +106,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-    request: NextRequest,
+    _: NextRequest,
     { params }: { params: { id: string } },
 ) {
     try {
