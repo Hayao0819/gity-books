@@ -5,6 +5,7 @@ import { Navigation } from "@/components/navigation";
 import { ErrorBoundary } from "@/components/error-boundary";
 import type { ReactNode } from "react";
 import { SessionProvider } from "next-auth/react";
+import { Footer } from "@/components/ui/footer";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -30,6 +31,8 @@ export default function RootLayout({
                         <main className="container mx-auto px-4 py-8 max-w-7xl grow">
                             {children}
                         </main>
+                        {/* フッター追加 */}
+                        <Footer />
                     </body>
                 </SessionProvider>
             </ErrorBoundary>
